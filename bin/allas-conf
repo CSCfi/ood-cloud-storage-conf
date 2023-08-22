@@ -1,0 +1,8 @@
+#!/bin/bash
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+. "$SCRIPT_DIR/env"
+
+# allas_conf tries to unset PYTHONPATH to use containerized python, need our own python.
+readonly PYTHONPATH
+. allas_conf "$@"

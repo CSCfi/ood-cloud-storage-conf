@@ -1,0 +1,5 @@
+---
+name: Allas Auth API
+icon: fa://gear
+description: |
+  API for configuring Rclone Allas remote.
