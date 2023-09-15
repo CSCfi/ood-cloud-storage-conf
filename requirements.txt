@@ -1,7 +1,5 @@
 # Add your dependencies to this file
 # Note that specific versions may be installed:
 #  version_sensitive_depenency==1.2.3
-Flask==2.0.3
-python-openstackclient==5.8.0
-s3cmd==2.3.0
-crypt4gh==1.6
+Flask==2.3.3
+python-openstackclient==6.2.0
