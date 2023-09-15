@@ -5,6 +5,7 @@ USER = pwd.getpwuid(os.geteuid()).pw_name
 
 TMPDIR = os.path.join("/tmp", USER)
 
+# OS_* are env variables used by OpenStack (CLI).
 BASE_OS_ENV = {
     "OS_AUTH_URL": os.environ.get("OS_AUTH_URL", "https://pouta.csc.fi:5001/v3"),
     "OS_REGION_NAME": os.environ.get("OS_REGION_NAME", "regionOne"),

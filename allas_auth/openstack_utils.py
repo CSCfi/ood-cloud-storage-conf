@@ -39,6 +39,7 @@ def run_with_os_env(
 ):
     default_kwargs = {"capture_output": True, "text": True}
     env = {**os.environ.copy(), **BASE_OS_ENV, **kwargs.get("env", {})}
+    # Configure OpenStack (CLI) using env vars (OS_*).
     if not os_project_id is None:
         env["OS_PROJECT_ID"] = os_project_id
     if not os_password is None:
