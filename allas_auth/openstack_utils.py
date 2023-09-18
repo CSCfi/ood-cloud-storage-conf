@@ -3,6 +3,8 @@ import os
 import subprocess
 from subprocess import CalledProcessError
 
+import requests
+
 from .constants import BASE_OS_ENV
 
 
@@ -61,6 +63,17 @@ def get_unscoped_token(os_password):
         ["openstack", "token", "issue", "--format=json"], os_password=os_password
     )
     return json.loads(res.stdout)
+
+
+# Revoke an openstack token.
+def revoke_token(os_token):
+    # For some reason openstack token revoke does not work with only the token, send request manually.
+    url = f"{BASE_OS_ENV['OS_AUTH_URL']}/auth/tokens"
+    headers = {"X-Auth-Token": os_token, "X-Subject-Token": os_token}
+    response = requests.delete(url, headers=headers)
+    # Check if revokation successful or already invalid.
+    if not (response.status_code == 204 or response.status_code == 401):
+        response.raise_for_status()
 
 
 # List all the user's projects.

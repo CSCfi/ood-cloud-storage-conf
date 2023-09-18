@@ -26,9 +26,8 @@ def is_expired(token):
 def parse_expires(expires):
     return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S%z")
 
-
 # Gets non-expired openstack tokens.
-def get_cached_os_token():
+def get_cached_os_tokens():
     tokens = []
     # Find non-expired tokens, clean up expired.
     for token_file in glob.glob(f"{TMPDIR}/os-token.*"):
@@ -45,7 +44,11 @@ def get_cached_os_token():
         except OSError as err:
             print(f"Error reading token file: {err}", file=sys.stderr)
     tokens.sort(key=lambda e: e[1]["expires"], reverse=True)
-    # TODO: Could clean up extra tokens here (they shouldn't exist though).
+    return tokens
+
+# Gets the most recent openstack token.
+def get_cached_os_token():
+    tokens = get_cached_os_tokens()
     return tokens[0][1] if tokens else None
 
 def remove_cached_os_tokens():

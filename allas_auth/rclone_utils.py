@@ -44,6 +44,12 @@ def delete_rclone_s3_conf(remote_name):
     write_rclone_conf(conf)
 
 
+# S3 access key ID for remote.
+def access_key_id(remote_name):
+    conf = current_rclone_conf()
+    return conf.get(remote_name, "access_key_id", fallback=None)
+
+
 def list_remotes():
     conf = current_rclone_conf()
     return conf.sections()
