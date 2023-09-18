@@ -141,6 +141,7 @@ def remotes():
     return jsonify(list_remotes())
 
 
+# Returns the expiry time of the current openstack token.
 @app.get("/status")
 def status():
     os_token = get_cached_os_token()
@@ -148,7 +149,7 @@ def status():
     if os_token is None:
         return "Missing token", 401
     else:
-        return "", 200
+        return os_token["expires"].strftime("%d-%m-%Y %H:%M:%S %Z"), 200
 
 
 # Endpoint for removing openstack token. Mostly for debugging (for now). GET for easy use in browser.
