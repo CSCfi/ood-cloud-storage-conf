@@ -149,7 +149,7 @@ def status():
     if os_token is None:
         return "Missing token", 401
     else:
-        return os_token["expires"].strftime("%d-%m-%Y %H:%M:%S %Z"), 200
+        return os_token["expires"].strftime("%Y-%m-%d %H:%M:%S %Z"), 200
 
 
 # Endpoint for removing openstack token. Mostly for debugging (for now). GET for easy use in browser.
