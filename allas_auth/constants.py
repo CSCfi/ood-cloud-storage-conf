@@ -15,7 +15,7 @@ BASE_OS_ENV = {
 }
 
 RCLONE_CONF = os.environ.get(
-    "RCLONE_CONFIG", os.path.join(os.path.expanduser("~"), ".config/rclone/ood.conf")
+    "RCLONE_CONFIG", os.path.join(os.path.expanduser("~"), ".config/rclone/rclone.conf")
 )
 
 RCLONE_BASE_REMOTE_CONF = {
