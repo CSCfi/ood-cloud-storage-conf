@@ -2,6 +2,7 @@ import os
 
 from flask import Flask, jsonify, request
 
+from allas_auth.constants import RCLONE_BASE_REMOTE_CONF
 from allas_auth.openstack_utils import (
     OpenStackError,
     create_s3_token,
@@ -16,11 +17,11 @@ from allas_auth.rclone_utils import (
     add_rclone_s3_conf,
     delete_rclone_s3_conf,
     list_remotes,
+    s3_endpoint,
 )
 from allas_auth.token_handler import (
     get_cached_os_token,
     get_cached_os_tokens,
-    remove_cached_os_tokens,
     save_os_token,
 )
 
@@ -87,32 +88,36 @@ def delete_project():
 def revoke_remote():
     req_remote = request.form.get("remote")
     if req_remote is None:
-        return "Missing remote", 400
-
-    # Determine project name from remote name (i.e. allas-project_123 => project_123).
-    # Safer (but slower) option would be to find project based on access_key_id only.
-    split_remote = req_remote.split("-", 1)
-    if len(split_remote) < 2:
-        return "Could not get project name from remote", 400
-    project_name = split_remote[-1]
+        return "Missing remote.", 400
 
     os_token = get_cached_os_token()
     if os_token is None:
-        return "Missing token", 401
+        return "Missing token.", 401
 
     try:
-        projects = get_projects(os_token)
-
-        project = next(
-            (p for p in projects if p["Name"] == project_name),
-            None,
-        )
-        if project is None:
-            return "Invalid project name or ID", 400
         s3_token_id = access_key_id(req_remote)
         if s3_token_id is None:
-            return "Remote is not an S3 remote or does not have an access key", 400
-        delete_s3_token(os_token, project["ID"], s3_token_id)
+            return "Remote is not an S3 remote or does not have an access token.", 400
+
+        # Need the ID of any project to list S3 tokens.
+        any_project = next(iter(get_projects(os_token)), None)
+        if any_project is None:
+            return "No valid projects found for user."
+
+        s3_tokens = get_s3_tokens(os_token, any_project["ID"])
+        s3_token = next(
+            (t for t in s3_tokens if t["Access"] == s3_token_id),
+            None,
+        )
+        # Token is valid and is for Allas. Revoke it.
+        if not s3_token is None:
+            project_id = s3_token["Project ID"]
+            delete_s3_token(os_token, project_id, s3_token_id)
+        elif s3_endpoint(req_remote) != RCLONE_BASE_REMOTE_CONF["endpoint"]:
+            return (
+                "Access token for remote can not be revoked as it is not an Allas access token.",
+                400,
+            )
         delete_rclone_s3_conf(req_remote)
     except OpenStackError as err:
         return str(err), 500

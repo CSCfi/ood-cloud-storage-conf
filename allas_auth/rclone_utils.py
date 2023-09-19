@@ -50,6 +50,11 @@ def access_key_id(remote_name):
     return conf.get(remote_name, "access_key_id", fallback=None)
 
 
+def s3_endpoint(remote_name):
+    conf = current_rclone_conf()
+    return conf.get(remote_name, "endpoint", fallback="")
+
+
 def list_remotes():
     conf = current_rclone_conf()
     return conf.sections()
