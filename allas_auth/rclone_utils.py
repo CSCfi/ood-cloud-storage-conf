@@ -12,7 +12,7 @@ def remote_name(project_name):
 
 # Reads current Rclone config, or return empty if no config exists.
 def current_rclone_conf():
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(strict=False)
     # Missing config file is handled ok (nothing added to config).
     config.read(RCLONE_CONF)
     return config
