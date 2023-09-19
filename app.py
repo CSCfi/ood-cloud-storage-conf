@@ -64,7 +64,9 @@ def add():
                 }
             ]
         token = s3_tokens[0]
-        add_rclone_s3_conf(project["Name"], token["Access"], token["Secret"])
+        backup_file = add_rclone_s3_conf(project["Name"], token["Access"], token["Secret"])
+        if not backup_file is None:
+            return backup_file, 200
     except OpenStackError as err:
         return str(err), 500
     except OSError as err:
@@ -78,7 +80,9 @@ def delete_project():
     if req_remote is None:
         return "Missing remote", 400
     try:
-        delete_rclone_s3_conf(req_remote)
+        backup_file = delete_rclone_s3_conf(req_remote)
+        if not backup_file is None:
+            return backup_file, 200
     except OSError as err:
         return f"Could not save updated Rclone config: {err}", 500
     return "", 200
@@ -118,7 +122,9 @@ def revoke_remote():
                 "Access token for remote can not be revoked as it is not an Allas access token.",
                 400,
             )
-        delete_rclone_s3_conf(req_remote)
+        backup_file = delete_rclone_s3_conf(req_remote)
+        if not backup_file is None:
+            return backup_file, 200
     except OpenStackError as err:
         return str(err), 500
     except OSError as err:

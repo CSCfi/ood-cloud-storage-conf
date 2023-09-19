@@ -1,6 +1,8 @@
 import configparser
 import copy
 import os
+import shutil
+import time
 
 from .constants import RCLONE_BASE_REMOTE_CONF, RCLONE_CONF
 from .utils import create_private_dir
@@ -8,6 +10,15 @@ from .utils import create_private_dir
 
 def remote_name(project_name):
     return f"allas-{project_name}"
+
+
+def contains_comments(config_file):
+    try:
+        with open(config_file, "r") as f:
+            lines = f.readlines()
+            return any(map(lambda l: l.lstrip().startswith(("#", ";")), lines))
+    except FileNotFoundError:
+        return False
 
 
 # Reads current Rclone config, or return empty if no config exists.
@@ -21,9 +32,18 @@ def current_rclone_conf():
 # Writes Rclone config to disk.
 def write_rclone_conf(conf):
     create_private_dir(os.path.dirname(RCLONE_CONF))
+    backup_file = None
+    if contains_comments(RCLONE_CONF):
+        backup_file = os.path.join(
+            os.path.dirname(RCLONE_CONF), f"rclone.conf.{int(time.time())}"
+        )
+        shutil.copyfile(RCLONE_CONF, backup_file, follow_symlinks=False)
+        os.chmod(backup_file, 0o600)
+
     with open(RCLONE_CONF, "w+") as config_file:
         os.chmod(config_file.name, 0o600)
         conf.write(config_file)
+    return backup_file
 
 
 # Extends existing Rclone rclone with S3 key for project, overwriting existing.
@@ -33,7 +53,7 @@ def add_rclone_s3_conf(project_name, access_key, secret):
     remote_conf["access_key_id"] = access_key
     remote_conf["secret_access_key"] = secret
     conf[remote_name(project_name)] = remote_conf
-    write_rclone_conf(conf)
+    return write_rclone_conf(conf)
 
 
 # Deletes a remote for a project from the existing Rclone config.
@@ -41,7 +61,7 @@ def delete_rclone_s3_conf(remote_name):
     create_private_dir(os.path.dirname(RCLONE_CONF))
     conf = current_rclone_conf()
     conf.remove_section(remote_name)
-    write_rclone_conf(conf)
+    return write_rclone_conf(conf)
 
 
 # S3 access key ID for remote.
