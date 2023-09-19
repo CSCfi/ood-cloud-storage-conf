@@ -57,4 +57,10 @@ def s3_endpoint(remote_name):
 
 def list_remotes():
     conf = current_rclone_conf()
-    return conf.sections()
+    # List remotes with name and type.
+    return list(
+        map(
+            lambda remote: {"name": remote, "type": conf.get(remote, "type", fallback="")},
+            conf.sections(),
+        )
+    )
