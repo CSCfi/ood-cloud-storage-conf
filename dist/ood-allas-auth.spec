@@ -46,10 +46,12 @@ done
 
 %post
 
+touch {_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-allas-auth.conf
+
 %files
 
 %{_localstatedir}%{app_path}%{name}
-%{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-allas-auth.conf
+%ghost %{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-allas-auth.conf
 
 %changelog
 * Tue Aug 22 2023 Robin Karlsson <robin.karlsson@csc.fi>
