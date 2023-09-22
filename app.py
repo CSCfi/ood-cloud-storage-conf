@@ -1,3 +1,4 @@
+import configparser
 import os
 
 from flask import Flask, jsonify, request
@@ -71,6 +72,8 @@ def add():
         return str(err), 500
     except OSError as err:
         return f"Could not save updated Rclone config: {err}", 500
+    except configparser.Error as err:
+        return f"Could not read Rclone config: {err}", 500
     return "", 200
 
 
@@ -85,6 +88,8 @@ def delete_project():
             return backup_file, 200
     except OSError as err:
         return f"Could not save updated Rclone config: {err}", 500
+    except configparser.Error as err:
+        return f"Could not read Rclone config: {err}", 500
     return "", 200
 
 
@@ -129,6 +134,8 @@ def revoke_remote():
         return str(err), 500
     except OSError as err:
         return f"Could not save updated Rclone config: {err}", 500
+    except configparser.Error as err:
+        return f"Could not read Rclone config: {err}", 500
     return "", 200
 
 
@@ -149,7 +156,10 @@ def projects():
 
 @app.get("/remotes")
 def remotes():
-    return jsonify(list_remotes())
+    try:
+        return jsonify(list_remotes())
+    except configparser.Error as err:
+        return f"Could not read Rclone config: {err}", 500
 
 
 # Returns the expiry time of the current openstack token.
