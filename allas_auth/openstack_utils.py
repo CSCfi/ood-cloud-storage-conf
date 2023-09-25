@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from functools import wraps
 from subprocess import CalledProcessError
 
 import requests
@@ -22,6 +23,7 @@ class OpenStackError(Exception):
 
 def wrap_error(err_msg):
     def _outer(os_func):
+        @wraps(os_func)
         def _inner(*args, **kwargs):
             try:
                 return os_func(*args, **kwargs)
@@ -63,6 +65,29 @@ def get_unscoped_token(os_password):
         ["openstack", "token", "issue", "--format=json"], os_password=os_password
     )
     return json.loads(res.stdout)
+
+
+# Issue a new scoped openstack token (valid only for one project)
+@wrap_error("Could not issue new openstack token for project")
+def create_scoped_token(unscoped_token, project_id):
+    res = run_with_os_env(
+        ["openstack", "token", "issue", "--format=json"],
+        os_project_id=project_id,
+        os_token=unscoped_token["id"],
+    )
+    return json.loads(res.stdout)
+
+
+# Issue a new scoped openstack token (valid only for one project)
+@wrap_error("Could not get object store account")
+def get_storage_account(scoped_token, project_id):
+    res = run_with_os_env(
+        ["openstack", "object", "store", "account", "show", "--format=json"],
+        os_project_id=project_id,
+        os_token=scoped_token["id"],
+    )
+    info = json.loads(res.stdout)
+    return info.get("Account")
 
 
 # Revoke an openstack token.
@@ -110,6 +135,23 @@ def get_s3_tokens(unscoped_token, project_id):
         filter(lambda tok: tok["Project ID"] == project_id, json.loads(res.stdout))
     )
     return tokens
+
+
+# Get an existing S3 token if it exists, otherwise new
+def get_or_create_s3_token(unscoped_token, project_id):
+    s3_tokens = get_s3_tokens(unscoped_token, project_id)
+    if len(s3_tokens) == 0:
+        token = create_s3_token(unscoped_token, project_id)
+        s3_tokens = [
+            {
+                "Access": token["access"],
+                "Project ID": token["project_id"],
+                "Secret": token["secret"],
+                "User ID": token["user_id"],
+            }
+        ]
+    token = s3_tokens[0]
+    return token
 
 
 # Create an S3 token for a project.

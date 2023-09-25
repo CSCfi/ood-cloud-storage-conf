@@ -14,11 +14,13 @@ BASE_OS_ENV = {
     "OS_USERNAME": os.environ.get("OS_USERNAME", USER),
 }
 
+OS_STORAGE_URL_BASE = "https://a3s.fi:443/swift/v1/"
+
 RCLONE_CONF = os.environ.get(
     "RCLONE_CONFIG", os.path.join(os.path.expanduser("~"), ".config/rclone/rclone.conf")
 )
 
-RCLONE_BASE_REMOTE_CONF = {
+RCLONE_BASE_S3_CONF = {
     "type": "s3",
     "provider": "Other",
     "env_auth": "false",
@@ -26,4 +28,11 @@ RCLONE_BASE_REMOTE_CONF = {
     "secret_access_key": "",
     "endpoint": "a3s.fi",
     "acl": "private",
+}
+
+RCLONE_BASE_SWIFT_CONF = {
+    "type": "swift",
+    "env_auth": "false",
+    "auth_token": "",
+    "storage_url": "",
 }
