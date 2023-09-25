@@ -1,5 +1,8 @@
 ---
-name: Allas Auth API
-icon: fa://gear
+name: Allas configuration tool
+icon: fa://cloud
+category: Tools
+new_window: false
+url: "/pun/sys/dashboard/custom/allas_auth"
 description: |
-  API for configuring Rclone Allas remote.
+  Tool for configuring authentication to Allas.
