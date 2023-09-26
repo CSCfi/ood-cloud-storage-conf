@@ -117,17 +117,31 @@ def add_all(os_token=None, remote_type=None):
         if len(projects) == 0:
             return "No projects found.", 400
         conf = None
+        errors = []
         for project in projects:
-            swift_token = create_scoped_token(os_token, project["ID"])
-            storage_account = get_storage_account(swift_token, project["ID"])
-            conf = backup_file = add_rclone_swift_conf(
-                project["Name"],
-                storage_account,
-                swift_token["id"],
-                conf=conf,
-                write=False,
+            try:
+                swift_token = create_scoped_token(os_token, project["ID"])
+                storage_account = get_storage_account(swift_token, project["ID"])
+                conf = backup_file = add_rclone_swift_conf(
+                    project["Name"],
+                    storage_account,
+                    swift_token["id"],
+                    conf=conf,
+                    write=False,
+                )
+            except OpenStackError as err:
+                errors.append(
+                    f"Could not add remote for {project['Name']}:\n{err}"
+                )
+        backup_file = None
+        if not conf is None:
+            backup_file = write_rclone_conf(conf)
+        if len(errors) > 0:
+            combined_errors = "\n".join(errors)
+            return (
+                f"Configuration for one or more remotes failed:\n{combined_errors}",
+                500,
             )
-        backup_file = write_rclone_conf(conf)
         if not backup_file is None:
             return backup_file, 200
     except OpenStackError as err:
