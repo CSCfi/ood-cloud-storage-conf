@@ -17,6 +17,7 @@ from allas_auth.openstack_utils import (
     revoke_token,
 )
 from allas_auth.rclone_utils import (
+    RcloneError,
     add_rclone_s3_conf,
     add_rclone_swift_conf,
     delete_rclone_remote,
@@ -39,7 +40,7 @@ def requires_auth(f):
     def _inner(*args, **kwargs):
         os_token = get_cached_os_token()
         if os_token is None:
-            return "Missing token.", 401
+            return error_message(f"Missing token.", 401)
         kwargs["os_token"] = os_token
         return f(*args, **kwargs)
 
@@ -53,13 +54,35 @@ def extract_param(param):
         def _inner(*args, **kwargs):
             value = request.form.get(param)
             if value is None:
-                return f"Missing parameter {param} in request.", 400
+                return error_message(f"Missing parameter {param} in request.")
             kwargs[param] = value
             return f(*args, **kwargs)
 
         return _inner
 
     return _outer
+
+
+@app.errorhandler(OpenStackError)
+def handle_openstack_error(err):
+    return jsonify({"message": err.message, "errors": [str(err.cause())]}), 500
+
+
+@app.errorhandler(RcloneError)
+def handle_rclone_error(err):
+    return jsonify({"message": err.message, "errors": [str(err.__context__)]}), 500
+
+
+# Helper function for simplifying returning an error message with possible root causes.
+def error_message(message, exit_code=400, errors=[]):
+    return jsonify({"message": message, "errors": errors}), exit_code
+
+
+def maybe_return_backup(backup_file):
+    if backup_file is None:
+        return jsonify({}), 200
+    else:
+        return jsonify({"backup": backup_file}), 200
 
 
 @app.route("/")
@@ -72,37 +95,27 @@ def index():
 @extract_param("remote_type")
 @requires_auth
 def add(os_token=None, project=None, remote_type=None):
-    try:
-        projects = get_projects(os_token)
+    projects = get_projects(os_token)
 
-        project = next(
-            (p for p in projects if p["Name"] == project or p["ID"] == project),
-            None,
+    project = next(
+        (p for p in projects if p["Name"] == project or p["ID"] == project),
+        None,
+    )
+    if project is None:
+        return error_message("Invalid project name or ID")
+    backup_file = None
+    if remote_type == "s3":
+        token = get_or_create_s3_token(os_token, project["ID"])
+        backup_file = add_rclone_s3_conf(
+            project["Name"], token["Access"], token["Secret"]
         )
-        if project is None:
-            return "Invalid project name or ID", 400
-        if remote_type == "s3":
-            token = get_or_create_s3_token(os_token, project["ID"])
-            backup_file = add_rclone_s3_conf(
-                project["Name"], token["Access"], token["Secret"]
-            )
-            if not backup_file is None:
-                return backup_file, 200
-        elif remote_type == "swift":
-            swift_token = create_scoped_token(os_token, project["ID"])
-            storage_account = get_storage_account(swift_token, project["ID"])
-            backup_file = add_rclone_swift_conf(
-                project["Name"], storage_account, swift_token["id"]
-            )
-            if not backup_file is None:
-                return backup_file, 200
-    except OpenStackError as err:
-        return str(err), 500
-    except OSError as err:
-        return f"Could not save updated Rclone config: {err}", 500
-    except configparser.Error as err:
-        return f"Could not read Rclone config: {err}", 500
-    return "", 200
+    elif remote_type == "swift":
+        swift_token = create_scoped_token(os_token, project["ID"])
+        storage_account = get_storage_account(swift_token, project["ID"])
+        backup_file = add_rclone_swift_conf(
+            project["Name"], storage_account, swift_token["id"]
+        )
+    return maybe_return_backup(backup_file)
 
 
 @app.route("/add_all", methods=["POST"])
@@ -111,155 +124,121 @@ def add(os_token=None, project=None, remote_type=None):
 def add_all(os_token=None, remote_type=None):
     # Disallow generating S3 for all for now.
     if remote_type != "swift":
-        return f"Can not create all remotes for remote type {remote_type}", 401
-    try:
-        projects = get_projects(os_token)
-        if len(projects) == 0:
-            return "No projects found.", 400
-        conf = None
-        errors = []
-        for project in projects:
-            try:
-                swift_token = create_scoped_token(os_token, project["ID"])
-                storage_account = get_storage_account(swift_token, project["ID"])
-                conf = backup_file = add_rclone_swift_conf(
-                    project["Name"],
-                    storage_account,
-                    swift_token["id"],
-                    conf=conf,
-                    write=False,
-                )
-            except OpenStackError as err:
-                errors.append(
-                    f"Could not add remote for {project['Name']}:\n{err}"
-                )
-        backup_file = None
-        if not conf is None:
-            backup_file = write_rclone_conf(conf)
-        if len(errors) > 0:
-            combined_errors = "\n".join(errors)
-            return (
-                f"Configuration for one or more remotes failed:\n{combined_errors}",
-                500,
+        return error_message(
+            f"Can not create all remotes for remote type {remote_type}", 401
+        )
+    projects = get_projects(os_token)
+    if len(projects) == 0:
+        return error_message("No projects found.", 500)
+    conf = None
+    errors = []
+    for project in projects:
+        try:
+            swift_token = create_scoped_token(os_token, project["ID"])
+            storage_account = get_storage_account(swift_token, project["ID"])
+            conf = backup_file = add_rclone_swift_conf(
+                project["Name"],
+                storage_account,
+                swift_token["id"],
+                conf=conf,
+                write=False,
             )
-        if not backup_file is None:
-            return backup_file, 200
-    except OpenStackError as err:
-        return str(err), 500
-    except OSError as err:
-        return f"Could not save updated Rclone config: {err}", 500
-    except configparser.Error as err:
-        return f"Could not read Rclone config: {err}", 500
-    return "", 200
+        except OpenStackError as err:
+            errors.append(
+                f"Could not add remote for {project['Name']}:\n{err.full_message()}"
+            )
+    backup_file = None
+    if not conf is None:
+        backup_file = write_rclone_conf(conf)
+    if len(errors) > 0:
+        return error_message(
+            f"Configuration for one or more remotes failed", 500, errors
+        )
+    return maybe_return_backup(backup_file)
 
 
 @app.route("/delete", methods=["POST"])
 @extract_param("remote")
 def delete_project(remote=None):
-    try:
-        backup_file = delete_rclone_remote(remote)
-        if not backup_file is None:
-            return backup_file, 200
-    except OSError as err:
-        return f"Could not save updated Rclone config: {err}", 500
-    except configparser.Error as err:
-        return f"Could not read Rclone config: {err}", 500
-    return "", 200
+    backup_file = delete_rclone_remote(remote)
+    return maybe_return_backup(backup_file)
 
 
 @app.route("/revoke", methods=["POST"])
 @extract_param("remote")
 @requires_auth
 def revoke_remote(os_token=None, remote=None):
-    try:
-        remotes = list_remotes()
-        remote = next(
-            (r for r in remotes if r["name"] == remote),
+    remotes = list_remotes()
+    remote = next(
+        (r for r in remotes if r["name"] == remote),
+        None,
+    )
+    if remote is None:
+        return error_message("Remote does not exist.")
+    if remote["type"] == "swift":
+        auth_token = get_remote_option(remote["name"], "auth_token")
+        if auth_token is None:
+            return error_message("Remote does not have a token to revoke.")
+        storage_url = get_remote_option(remote["name"], "storage_url")
+        if storage_url is None or not OS_STORAGE_URL_BASE in storage_url:
+            return error_message(
+                "Access token for remote can not be revoked as it is not an Allas access token."
+            )
+        revoke_token(auth_token)
+    elif remote["type"] == "s3":
+        s3_token_id = get_remote_option(remote["name"], "access_key_id")
+        if s3_token_id is None:
+            return error_message("Remote does not have an access token.")
+
+        # Need the ID of any project to list S3 tokens.
+        any_project = next(iter(get_projects(os_token)), None)
+        if any_project is None:
+            return error_message("No valid projects found for user.", 500)
+
+        s3_tokens = get_s3_tokens(os_token, any_project["ID"])
+        s3_token = next(
+            (t for t in s3_tokens if t["Access"] == s3_token_id),
             None,
         )
-        if remote is None:
-            return "Remote does not exist.", 400
-        if remote["type"] == "swift":
-            auth_token = get_remote_option(remote["name"], "auth_token")
-            if auth_token is None:
-                return "Remote does not have a token to revoke.", 400
-            storage_url = get_remote_option(remote["name"], "storage_url")
-            if storage_url is None or not OS_STORAGE_URL_BASE in storage_url:
-                return (
-                    "Access token for remote can not be revoked as it is not an Allas access token.",
-                    400,
-                )
-            revoke_token(auth_token)
-        elif remote["type"] == "s3":
-            s3_token_id = get_remote_option(remote["name"], "access_key_id")
-            if s3_token_id is None:
-                return "Remote does not have an access token.", 400
-
-            # Need the ID of any project to list S3 tokens.
-            any_project = next(iter(get_projects(os_token)), None)
-            if any_project is None:
-                return "No valid projects found for user."
-
-            s3_tokens = get_s3_tokens(os_token, any_project["ID"])
-            s3_token = next(
-                (t for t in s3_tokens if t["Access"] == s3_token_id),
-                None,
+        # Token is valid and is for Allas. Revoke it.
+        if not s3_token is None:
+            project_id = s3_token["Project ID"]
+            delete_s3_token(os_token, project_id, s3_token_id)
+        elif (
+            get_remote_option(remote["name"], "endpoint")
+            != RCLONE_BASE_S3_CONF["endpoint"]
+        ):
+            return error_message(
+                f"Access token for remote can not be revoked as it is not an Allas access token."
             )
-            # Token is valid and is for Allas. Revoke it.
-            if not s3_token is None:
-                project_id = s3_token["Project ID"]
-                delete_s3_token(os_token, project_id, s3_token_id)
-            elif (
-                get_remote_option(remote["name"], "endpoint")
-                != RCLONE_BASE_S3_CONF["endpoint"]
-            ):
-                return (
-                    "Access token for remote can not be revoked as it is not an Allas access token.",
-                    400,
-                )
-        else:
-            return (
-                f"Access tokens for remotes of type {remote['type']} can not be revoked.",
-                400,
-            )
-        backup_file = delete_rclone_remote(remote["name"])
-        if not backup_file is None:
-            return backup_file, 200
-    except OpenStackError as err:
-        return str(err), 500
-    except OSError as err:
-        return f"Could not save updated Rclone config: {err}", 500
-    except configparser.Error as err:
-        return f"Could not read Rclone config: {err}", 500
-    return "", 200
+    else:
+        return error_message(
+            f"Access tokens for remotes of type {remote['type']} can not be revoked."
+        )
+    backup_file = delete_rclone_remote(remote["name"])
+    return maybe_return_backup(backup_file)
 
 
 @app.get("/projects")
 @requires_auth
 def projects(os_token=None):
-    try:
-        projects = get_projects(os_token)
-    except OpenStackError as err:
-        return (
-            str(err),
-            500,
-        )
+    projects = get_projects(os_token)
     return jsonify(projects)
 
 
 @app.get("/remotes")
 def remotes():
-    try:
-        return jsonify(list_remotes())
-    except configparser.Error as err:
-        return f"Could not read Rclone config: {err}", 500
+    return jsonify(list_remotes())
 
 
 # Returns the expiry time of the current openstack token.
 @app.get("/status")
 @requires_auth
 def status(os_token=None):
-    return os_token["expires"].strftime("%Y-%m-%d %H:%M:%S %Z"), 200
+    return (
+        jsonify({"expires": os_token["expires"].strftime("%Y-%m-%d %H:%M:%S %Z")}),
+        200,
+    )
 
 
 # Endpoint for removing openstack token. Mostly for debugging (for now). GET for easy use in browser.
@@ -273,29 +252,20 @@ def revoke_tokens():
             revoke_token(token["id"])
             os.remove(file)
         except OpenStackError as err:
-            errors.append(str(err))
-        except OSError as err:
-            errors.append(str(err))
+            errors.append(err.full_message())
+        except RcloneError as err:
+            errors.append(err.full_message())
     if len(errors):
-        error_string = "\n".join(errors)
-        return f"One or more tokens could not be revoked: {error_string}", 500
-    return "", 200
+        return error_message("One or more tokens could not be revoked", 500, errors)
+    return jsonify({}), 200
 
 
 @app.route("/renew_token", methods=["POST"])
 @extract_param("password")
 def renew_token(password=None):
-    try:
-        os_token = get_unscoped_token(password)
-        save_os_token(os_token)
-    except OpenStackError as err:
-        return (
-            str(err),
-            500,
-        )
-    except OSError as err:
-        return f"Could not save generated token: {err}", 500
-    return "", 200
+    os_token = get_unscoped_token(password)
+    save_os_token(os_token)
+    return jsonify({}), 200
 
 
 if __name__ == "__main__":

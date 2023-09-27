@@ -14,11 +14,20 @@ class OpenStackError(Exception):
         self.message = message
         super().__init__(self.message)
 
-    def __str__(self):
+    def cause(self):
         if isinstance(self.__context__, CalledProcessError):
-            return f"{self.message}: openstack exited with status {self.__context__.returncode}: {self.__context__.stderr}"
+            return f"openstack exited with status {self.__context__.returncode}: {self.__context__.stderr}"
+        elif not self.__context__ is None:
+            return str(self.__context__)
         else:
+            return None
+
+    def full_message(self):
+        cause = self.cause()
+        if cause is None:
             return self.message
+        else:
+            return f"{self.message}: {cause}"
 
 
 def wrap_error(err_msg):

@@ -6,16 +6,20 @@ from datetime import datetime, timedelta, timezone
 from tempfile import NamedTemporaryFile
 
 from .constants import TMPDIR
+from .openstack_utils import OpenStackError
 from .utils import create_private_dir
 
 
 # Save openstack token to tmpdir.
 def save_os_token(token):
-    create_private_dir(TMPDIR)
-    with NamedTemporaryFile(
-        dir=TMPDIR, prefix="os-token.", mode="w+", delete=False
-    ) as f:
-        json.dump(token, f)
+    try:
+        create_private_dir(TMPDIR)
+        with NamedTemporaryFile(
+            dir=TMPDIR, prefix="os-token.", mode="w+", delete=False
+        ) as f:
+            json.dump(token, f)
+    except OSError as err:
+        raise OpenStackError("Could not save generated token") from err
 
 
 def is_expired(token):
