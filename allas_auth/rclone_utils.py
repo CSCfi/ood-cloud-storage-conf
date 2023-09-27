@@ -73,11 +73,12 @@ def write_rclone_conf(conf):
 # Extends existing Rclone rclone with S3 key for project, overwriting existing.
 def add_rclone_s3_conf(project_name, access_key, secret):
     conf = current_rclone_conf()
+    name = remote_name(project_name, True)
     remote_conf = copy.deepcopy(RCLONE_BASE_S3_CONF)
     remote_conf["access_key_id"] = access_key
     remote_conf["secret_access_key"] = secret
-    conf[remote_name(project_name, True)] = remote_conf
-    return write_rclone_conf(conf)
+    conf[name] = remote_conf
+    return name, write_rclone_conf(conf)
 
 
 # Deletes a remote for a project from the existing Rclone config.
@@ -99,15 +100,16 @@ def add_rclone_swift_conf(
 ):
     if conf == None:
         conf = current_rclone_conf()
+    name = remote_name(project_name, False)
     remote_conf = copy.deepcopy(RCLONE_BASE_SWIFT_CONF)
     remote_conf["auth_token"] = auth_token
     remote_conf["storage_url"] = f"{OS_STORAGE_URL_BASE}{storage_account}"
-    conf[remote_name(project_name, False)] = remote_conf
+    conf[name] = remote_conf
     # Allow updating a conf without saving it to disk, i.e. when generating multiple.
     if write:
-        return write_rclone_conf(conf)
+        return name, write_rclone_conf(conf)
     else:
-        return conf
+        return name, conf
 
 
 def list_remotes():

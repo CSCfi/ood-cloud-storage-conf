@@ -78,11 +78,9 @@ def error_message(message, exit_code=400, errors=[]):
     return jsonify({"message": message, "errors": errors}), exit_code
 
 
-def maybe_return_backup(backup_file):
-    if backup_file is None:
-        return jsonify({}), 200
-    else:
-        return jsonify({"backup": backup_file}), 200
+def changed_remotes(added=None, removed=None, backup=None):
+    data = {"added": added, "removed": removed, "backup": backup}
+    return jsonify({k: v for k, v in data.items() if v is not None}), 200
 
 
 @app.route("/")
@@ -103,19 +101,20 @@ def add(os_token=None, project=None, remote_type=None):
     )
     if project is None:
         return error_message("Invalid project name or ID")
+    remote = None
     backup_file = None
     if remote_type == "s3":
         token = get_or_create_s3_token(os_token, project["ID"])
-        backup_file = add_rclone_s3_conf(
+        remote, backup_file = add_rclone_s3_conf(
             project["Name"], token["Access"], token["Secret"]
         )
     elif remote_type == "swift":
         swift_token = create_scoped_token(os_token, project["ID"])
         storage_account = get_storage_account(swift_token, project["ID"])
-        backup_file = add_rclone_swift_conf(
+        remote, backup_file = add_rclone_swift_conf(
             project["Name"], storage_account, swift_token["id"]
         )
-    return maybe_return_backup(backup_file)
+    return changed_remotes(added=[remote], backup=backup_file)
 
 
 @app.route("/add_all", methods=["POST"])
@@ -132,17 +131,19 @@ def add_all(os_token=None, remote_type=None):
         return error_message("No projects found.", 500)
     conf = None
     errors = []
+    added = []
     for project in projects:
         try:
             swift_token = create_scoped_token(os_token, project["ID"])
             storage_account = get_storage_account(swift_token, project["ID"])
-            conf = backup_file = add_rclone_swift_conf(
+            remote, conf = backup_file = add_rclone_swift_conf(
                 project["Name"],
                 storage_account,
                 swift_token["id"],
                 conf=conf,
                 write=False,
             )
+            added.append(remote)
         except OpenStackError as err:
             errors.append(
                 f"Could not add remote for {project['Name']}:\n{err.full_message()}"
@@ -154,14 +155,14 @@ def add_all(os_token=None, remote_type=None):
         return error_message(
             f"Configuration for one or more remotes failed", 500, errors
         )
-    return maybe_return_backup(backup_file)
+    return changed_remotes(added=added, backup=backup_file)
 
 
 @app.route("/delete", methods=["POST"])
 @extract_param("remote")
 def delete_project(remote=None):
     backup_file = delete_rclone_remote(remote)
-    return maybe_return_backup(backup_file)
+    return changed_remotes(removed=[remote],backup=backup_file)
 
 
 @app.route("/revoke", methods=["POST"])
@@ -216,7 +217,7 @@ def revoke_remote(os_token=None, remote=None):
             f"Access tokens for remotes of type {remote['type']} can not be revoked."
         )
     backup_file = delete_rclone_remote(remote["name"])
-    return maybe_return_backup(backup_file)
+    return changed_remotes(removed=[remote["name"]], backup=backup_file)
 
 
 @app.get("/projects")
