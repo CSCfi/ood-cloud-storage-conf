@@ -74,8 +74,10 @@ def handle_rclone_error(err):
 
 
 # Helper function for simplifying returning an error message with possible root causes.
-def error_message(message, exit_code=400, errors=[]):
-    return jsonify({"message": message, "errors": errors}), exit_code
+def error_message(message, exit_code=400, errors=[], added=None, removed=None, backup=None):
+    # added, remoted, backup included for cases where there is a partial success, i.e. adding all remotes.
+    data = {"message": message, "errors": errors, "added": added, "removed": removed, "backup": backup}
+    return jsonify({k: v for k, v in data.items() if v is not None}), exit_code
 
 
 def changed_remotes(added=None, removed=None, backup=None):
@@ -153,7 +155,7 @@ def add_all(os_token=None, remote_type=None):
         backup_file = write_rclone_conf(conf)
     if len(errors) > 0:
         return error_message(
-            f"Configuration for one or more remotes failed", 500, errors
+            f"Configuration for one or more remotes failed", 500, errors, added=added
         )
     return changed_remotes(added=added, backup=backup_file)
 
