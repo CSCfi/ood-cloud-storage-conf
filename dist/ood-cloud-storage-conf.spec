@@ -11,6 +11,7 @@ License:        MIT
 Source:         %{name}-%{version}.tar.bz2
 
 Requires:       ondemand
+Obsoletes:      ood-allas-auth
 
 # Disable debuginfo
 %global debug_package %{nil}
