@@ -1,8 +1,8 @@
 ---
-name: Allas configuration tool
+name: Cloud storage configuration
 icon: fa://cloud
 category: Tools
 new_window: false
-url: "/pun/sys/dashboard/custom/allas_auth"
+url: "/pun/sys/dashboard/custom/cloud_storage"
 description: |
-  Tool for configuring authentication to Allas.
+  Tool for configuring authentication to Allas and other cloud storages.

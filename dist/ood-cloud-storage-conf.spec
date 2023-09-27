@@ -1,9 +1,9 @@
 %define app_path /www/ood/apps/sys/
 
-Name:           ood-allas-auth
+Name:           ood-cloud-storage-conf
 Version:        1
 Release:        1%{?dist}
-Summary:        Open on Demand Allas auth API
+Summary:        Open on Demand Cloud Storage Configuration API
 
 BuildArch:      %{_arch}
 
@@ -16,7 +16,7 @@ Requires:       ondemand
 %global debug_package %{nil}
 
 %description
-Open on Demand Allas auth API
+Open on Demand Cloud Storage Configuration API
 
 %prep
 %setup -q
@@ -27,7 +27,7 @@ Open on Demand Allas auth API
 
 
 %__mkdir_p  %{buildroot}%{_sharedstatedir}/ondemand-nginx/config/apps/sys
-touch       %{buildroot}%{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-allas-auth.conf
+touch       %{buildroot}%{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-cloud-storage-conf.conf
 
 %__install -m 0755 -d %{buildroot}%{_localstatedir}%{app_path}%{name}/{allas_auth,bin,dist}
 %__install -m 0755 bin/python %{buildroot}%{_localstatedir}%{app_path}%{name}/bin
@@ -46,12 +46,12 @@ done
 
 %post
 
-touch {_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-allas-auth.conf
+touch {_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-cloud-storage-conf.conf
 
 %files
 
 %{_localstatedir}%{app_path}%{name}
-%ghost %{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-allas-auth.conf
+%ghost %{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-cloud-storage-conf.conf
 
 %changelog
 * Tue Aug 22 2023 Robin Karlsson <robin.karlsson@csc.fi>
