@@ -4,7 +4,7 @@ from functools import wraps
 
 from flask import Flask, jsonify, request
 
-from allas_auth.constants import OS_STORAGE_URL_BASE, RCLONE_BASE_S3_CONF, TIME_FORMAT
+from allas_auth.constants import OS_STORAGE_URL_BASE, RCLONE_BASE_S3_CONF
 from allas_auth.openstack_utils import (
     OpenStackError,
     create_scoped_token,
@@ -263,7 +263,7 @@ def remotes():
                 continue
             expires = token_info.get("token", {}).get("expires_at")
             if not expires is None:
-                remote["expires"] = parse_expires(expires).strftime(TIME_FORMAT)
+                remote["expires"] = int(parse_expires(expires).strftime("%s"))
         except Exception:
             # Silently ignore all exceptions, expiry info is not important.
             pass
@@ -275,7 +275,7 @@ def remotes():
 @requires_auth
 def status(os_token=None):
     return (
-        jsonify({"expires": os_token["expires"].strftime(TIME_FORMAT)}),
+        jsonify({"expires": int(os_token["expires"].strftime("%s"))}),
         200,
     )
 
