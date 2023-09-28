@@ -28,7 +28,12 @@ def is_expired(token):
 
 
 def parse_expires(expires):
-    return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S%z")
+    try:
+        # Time format for newly created tokens.
+        return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S%z")
+    except ValueError:
+        # Time format from querying /auth/tokens endpoint.
+        return datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S.%f%z")
 
 # Gets non-expired openstack tokens.
 def get_cached_os_tokens():

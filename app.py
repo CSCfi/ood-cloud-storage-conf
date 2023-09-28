@@ -4,7 +4,7 @@ from functools import wraps
 
 from flask import Flask, jsonify, request
 
-from allas_auth.constants import OS_STORAGE_URL_BASE, RCLONE_BASE_S3_CONF
+from allas_auth.constants import OS_STORAGE_URL_BASE, RCLONE_BASE_S3_CONF, TIME_FORMAT
 from allas_auth.openstack_utils import (
     OpenStackError,
     create_scoped_token,
@@ -13,6 +13,7 @@ from allas_auth.openstack_utils import (
     get_projects,
     get_s3_tokens,
     get_storage_account,
+    get_token_info,
     get_unscoped_token,
     revoke_token,
 )
@@ -28,6 +29,7 @@ from allas_auth.rclone_utils import (
 from allas_auth.token_handler import (
     get_cached_os_token,
     get_cached_os_tokens,
+    parse_expires,
     save_os_token,
 )
 
@@ -243,7 +245,29 @@ def projects(os_token=None):
 
 @app.get("/remotes")
 def remotes():
-    return jsonify(list_remotes())
+    remotes = list_remotes()
+    # Add expiration time to Allas Swift remotes
+    for remote in remotes:
+        if remote["type"] != "swift":
+            continue
+        auth_token = get_remote_option(remote["name"], "auth_token")
+        if auth_token is None:
+            continue
+        storage_url = get_remote_option(remote["name"], "storage_url")
+        if storage_url is None or not OS_STORAGE_URL_BASE in storage_url:
+            continue
+        try:
+            token_info = get_token_info(auth_token)
+            if token_info.get("error", {}).get("code") == 401:
+                remote["expires"] = "Expired"
+                continue
+            expires = token_info.get("token", {}).get("expires_at")
+            if not expires is None:
+                remote["expires"] = parse_expires(expires).strftime(TIME_FORMAT)
+        except Exception:
+            # Silently ignore all exceptions, expiry info is not important.
+            pass
+    return jsonify(remotes)
 
 
 # Returns the expiry time of the current openstack token.
@@ -251,7 +275,7 @@ def remotes():
 @requires_auth
 def status(os_token=None):
     return (
-        jsonify({"expires": os_token["expires"].strftime("%Y-%m-%d %H:%M:%S %Z")}),
+        jsonify({"expires": os_token["expires"].strftime(TIME_FORMAT)}),
         200,
     )
 

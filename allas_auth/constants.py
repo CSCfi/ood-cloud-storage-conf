@@ -5,6 +5,9 @@ USER = pwd.getpwuid(os.geteuid()).pw_name
 
 TMPDIR = os.path.join("/tmp", USER)
 
+# Format for timestamps visible to the user.
+TIME_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
+
 # OS_* are env variables used by OpenStack (CLI).
 BASE_OS_ENV = {
     "OS_AUTH_URL": os.environ.get("OS_AUTH_URL", "https://pouta.csc.fi:5001/v3"),

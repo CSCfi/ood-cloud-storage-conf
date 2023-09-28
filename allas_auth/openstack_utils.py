@@ -99,6 +99,14 @@ def get_storage_account(scoped_token, project_id):
     return info.get("Account")
 
 
+# Get info for an openstack token (scoped or unscoped).
+def get_token_info(os_token):
+    url = f"{BASE_OS_ENV['OS_AUTH_URL']}/auth/tokens"
+    headers = {"X-Auth-Token": os_token, "X-Subject-Token": os_token}
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+
 # Revoke an openstack token.
 def revoke_token(os_token):
     # For some reason openstack token revoke does not work with only the token, send request manually.
