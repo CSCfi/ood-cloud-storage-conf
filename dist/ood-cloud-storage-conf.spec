@@ -47,7 +47,7 @@ done
 
 %post
 
-touch {_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-cloud-storage-conf.conf
+touch %{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-cloud-storage-conf.conf
 
 %files
 
