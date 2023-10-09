@@ -45,14 +45,10 @@ for file in $(find deps/bin -type f); do
   %__install -m 0755 -D ${file} %{buildroot}%{_localstatedir}%{app_path}%{name}/${file}
 done
 
-%post
-
-touch {_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-cloud-storage-conf.conf
-
 %files
 
 %{_localstatedir}%{app_path}%{name}
-%ghost %{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-cloud-storage-conf.conf
+%{_sharedstatedir}/ondemand-nginx/config/apps/sys/ood-cloud-storage-conf.conf
 
 %changelog
 * Tue Aug 22 2023 Robin Karlsson <robin.karlsson@csc.fi>
