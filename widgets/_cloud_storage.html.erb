@@ -42,6 +42,13 @@
     </ul>
     <div class="tab-content" id="form_tab_content">
       <div class="tab-pane allas show active" id="tab_allas_s3" role="tabpanel" aria-labelledby="nav_btn_allas_s3">
+        <div class="allas-auth-container mt-2 d-none">
+          <span class="font-weight-bold">Authentication using the password of your CSC account is required to generate or revoke Allas access tokens:</span>
+          <%= bootstrap_form_tag url: "#{api_base_url}/renew_token", remote: true, html: { class: "renew-allas-token-form" } do |f| %>
+            <%= f.password_field :password %>
+            <%= f.primary "Submit" %>
+          <% end %>
+        </div>
         <div class="allas-form d-none">
           <p class="mt-2">If an S3 access token already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens are valid forever.</p>
           <%= bootstrap_form_tag :url => "#{api_base_url}/add", :remote => true, :html => { :id => "add_s3_remote", :class => "add-remote-form" } do |f| %>
@@ -52,6 +59,13 @@
           </div>
       </div>
       <div class="tab-pane allas" id="tab_allas_swift" role="tabpanel" aria-labelledby="nav_btn_allas_swift">
+        <div class="allas-auth-container mt-2 d-none">
+          <span class="font-weight-bold">Authentication using the password of your CSC account is required to generate or revoke Allas access tokens:</span>
+          <%= bootstrap_form_tag url: "#{api_base_url}/renew_token", remote: true, html: { class: "renew-allas-token-form" } do |f| %>
+            <%= f.password_field :password %>
+            <%= f.primary "Submit" %>
+          <% end %>
+        </div>
         <div class="allas-form d-none">
           <p class="mt-2">A new Swift access token will be generated for each new remote. The new token will be valid until <span class="allas_token_expiry"></span>.</p>
           <%= bootstrap_form_tag :url => "#{api_base_url}/add", :remote => true, :html => { :id => "add_swift_remote", :class => "add-remote-form" } do |f| %>
@@ -62,13 +76,6 @@
         <% end %>
       </div>
     </div>
-  </div>
-  <div id="auth_container" class="d-none">
-    <span class="font-weight-bold">Authentication using the password of your CSC account is required to generate or revoke Allas access tokens:</span>
-    <%= bootstrap_form_tag url: "#{api_base_url}/renew_token", remote: true, html: { id: "renew_token_form" } do |f| %>
-      <%= f.password_field :password %>
-      <%= f.primary "Submit" %>
-    <% end %>
   </div>
 <% end %>
 
@@ -385,11 +392,11 @@
     addError(`Configuration failed.`, err);
   });
 
-  $("#renew_token_form").on("ajax:success", async function(event, data) {
+  $(".renew-allas-token-form").on("ajax:success", async function(event, data) {
     $("#auth_container").addClass("d-none");
     await Promise.all([update_projects(), update_expiry()]);
   });
-  $("#renew_token_form").on("ajax:error", function(event, data) {
+  $(".renew-allas-token-form").on("ajax:error", function(event, data) {
     const xhr = event.originalEvent.detail[2];
     const err = parse_api_error(xhr.responseText);
     addError("Authentication failed, please ensure that you typed the password correctly.", err);
