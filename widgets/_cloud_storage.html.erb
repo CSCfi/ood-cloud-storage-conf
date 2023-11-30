@@ -2,7 +2,7 @@
 <% lumio_api_base_url = "/lumio" %>
 <%= render :layout => 'widgets/container', :locals => {:title => "Cloud storage configuration" } do %>
   <div id="alerts-container"></div>
-  <div id="remotes_container" class="d-none mb-3">
+  <div id="remotes_container" class="mb-3">
     <span class="font-weight-bold">Currently configured remotes:</span>
     <table id="remotes_table" class="table table-striped mb-1">
       <thead>
@@ -33,15 +33,18 @@
     </p>
     <span class="font-weight-bold">Configure new remotes:</span>
     <ul class="nav nav-tabs" id="form_tabs" role="tablist">
-      <li class="nav-item allas">
-        <a class="nav-link active" id="nav_btn_allas_s3" data-toggle="tab" data-target="#tab_allas_s3" href="#" role="tab" aria-controls="tab_allas_s3" aria-selected="true">Allas S3</a>
+      <li class="nav-item allas d-none">
+        <a class="nav-link" id="nav_btn_allas_s3" data-toggle="tab" data-target="#tab_allas_s3" href="#" role="tab" aria-controls="tab_allas_s3" aria-selected="true">Allas S3</a>
       </li>
-      <li class="nav-item allas">
+      <li class="nav-item allas d-none">
         <a class="nav-link" id="nav_btn_allas_swift" data-toggle="tab" data-target="#tab_allas_swift" href="#" role="tab" aria-controls="tab_allas_swift" aria-selected="false">Allas Swift</a>
+      </li>
+      <li class="nav-item lumio d-none">
+        <a class="nav-link" id="nav_btn_lumio" data-toggle="tab" data-target="#tab_lumio" href="#" role="tab" aria-controls="tab_lumio" aria-selected="false">LUMI-O</a>
       </li>
     </ul>
     <div class="tab-content" id="form_tab_content">
-      <div class="tab-pane allas show active" id="tab_allas_s3" role="tabpanel" aria-labelledby="nav_btn_allas_s3">
+      <div class="tab-pane allas d-none" id="tab_allas_s3" role="tabpanel" aria-labelledby="nav_btn_allas_s3">
         <div class="allas-auth-container mt-2 d-none">
           <span class="font-weight-bold">Authentication using the password of your CSC account is required to generate or revoke Allas access tokens:</span>
           <%= bootstrap_form_tag url: "#{api_base_url}/renew_token", remote: true, html: { class: "renew-allas-token-form" } do |f| %>
@@ -58,7 +61,7 @@
           <% end %>
           </div>
       </div>
-      <div class="tab-pane allas" id="tab_allas_swift" role="tabpanel" aria-labelledby="nav_btn_allas_swift">
+      <div class="tab-pane allas d-none" id="tab_allas_swift" role="tabpanel" aria-labelledby="nav_btn_allas_swift">
         <div class="allas-auth-container mt-2 d-none">
           <span class="font-weight-bold">Authentication using the password of your CSC account is required to generate or revoke Allas access tokens:</span>
           <%= bootstrap_form_tag url: "#{api_base_url}/renew_token", remote: true, html: { class: "renew-allas-token-form" } do |f| %>
@@ -73,6 +76,16 @@
             <%= f.hidden_field :remote_type, :value => :swift, :id => nil  %>
             <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
             <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="allas_swift">Add Swift remotes for all projects</button>
+          <% end %>
+        </div>
+      </div>
+      <div class="tab-pane lumio d-none" id="tab_lumio" role="tabpanel" aria-labelledby="nav_btn_lumio">
+        <p class="mt-2">If an S3 access token for the web interface already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens will be valid for 8 hours.</p>
+        <%= bootstrap_form_tag :url => "#{lumio_api_base_url}/add", :remote => true, :html => { :id => "add_lumio_remote", :class => "add-remote-form" } do |f| %>
+          <%= f.select :project, [], { :label => "Project" }, :class => ["project_select", "lumio"], :id => nil %>
+          <%= f.hidden_field :remote_type, :value => :lumio, :id => nil  %>
+          <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
+          <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="lumio">Add remotes for all projects</button>
         <% end %>
       </div>
     </div>
@@ -172,8 +185,9 @@
     return timestamp;
   }
 
-  function set_projects(projects) {
-    const project_selects = $(".project_select");
+  // Updates the project dropdowns for either forms of type allas or lumio
+  function set_projects(projects, type) {
+    const project_selects = $(`.project_select${type != null ? `.${type}` : "" }`);
     project_selects.empty();
     const options = projects.map((proj) => {
       const option = document.createElement("option");
@@ -183,22 +197,105 @@
     project_selects.append(...options);
   }
 
-  async function update_projects() {
-    let success = false;
+  // Fixes tab visibilites.
+  // Sets first tab to be visible, hides the whole container if no tab is visible (no Allas or LUMI-O access)
+  function update_tabs() {
+    const tab_panes = $("#add_remote_container .tab-pane:not(.d-none)");
+    const tab_buttons = $("#add_remote_container .nav-item:not(.d-none) > .nav-link");
+
+    tab_buttons.removeClass("active");
+    tab_panes.removeClass("show active");
+    if (tab_buttons.length && tab_panes.length) {
+      tab_buttons.first().addClass("active");
+      tab_panes.first().addClass("show active");
+      $("#add_remote_container").removeClass("d-none");
+    } else {
+      $("#add_remote_container").addClass("d-none");
+    }
+  }
+
+  // Toggle the visibility of LUMI-O elements (tabs)
+  function toggle_lumio(access) {
+    $(".lumio").toggleClass("d-none", !access);
+  }
+
+  // Toggles the visibility of Allas forms and tabs, based on access and auth state
+  function toggle_allas(access, auth) {
+    $(".allas-auth-container").toggleClass("d-none", access && auth || !access);
+    $(".allas-form").toggleClass("d-none", !(access && auth));
+    $(".allas").toggleClass("d-none", !access);
+  }
+
+  // Checks if user has access to Allas
+  function has_allas_access() {
+    return api_get("/allas_access", true, true)
+      .then(res => res["has_access"])
+      .catch(err => {
+        console.error("Error checking access to Allas:", err);
+        return false;
+      });
+  }
+
+  // Returns Allas auth status and list of projects (empty if no auth)
+  function get_allas_auth_and_projects() {
+    return api_get("/projects", true)
+      .then(projects => {return { auth: true, projects }})
+      .catch(err => {
+        if (!(err.response && err.response.status === 401)) {
+          addError("An error occurred when updating the list of Allas projects.", err);
+        }
+        return { auth: false, projects: []};
+      });
+  }
+
+  // Updates the current Allas projects list and UI state
+  async function update_allas_projects() {
+    const access = await has_allas_access();
+    const { auth, projects } = access ? (await get_allas_auth_and_projects()) : { auth: false, projects: [] };
+    set_projects(projects, "allas");
+    toggle_allas(access, auth);
+    if (access && auth) {
+      await update_expiry();
+    }
+    update_revoke_buttons();
+  }
+
+  // Check if user has authenticated to Allas API
+  function has_allas_auth() {
+    return $(".allas_token_expiry").text() !== "";
+  }
+
+  // Update the Allas auth token expiry field. Field is used for auth status.
+  async function update_expiry() {
     try {
-      const projects = await api_get("/projects", true);
-      set_projects(projects);
-      success = true;
+      const expiry = (await api_get("/status")).expires;
+      $(".allas_token_expiry").text(format_expiry(expiry));
     } catch (err) {
       if (!(err.response && err.response.status === 401)) {
-        addError("An error occurred when updating the list of projects.", err);
+        console.error("Error updating token expiry:", err.message)
       }
-    } finally {
-      $("#loading_spinner").hide();
-      $("#auth_container").toggleClass("d-none", success);
-      $("#add_remote_container").toggleClass("d-none", !success);
-      await update_remotes(success);
     }
+  }
+
+  // Updates the current LUMI-O projects list and UI state
+  async function update_lumio_projects() {
+    try {
+      const projects = await api_get("/projects", true, true);
+      set_projects(projects, "lumio");
+      update_lumio_remote_info(projects);
+      toggle_lumio(true);
+    } catch (err) {
+      console.log("Error checking LUMI-O projects:", err)
+      toggle_lumio(false);
+    }
+    update_revoke_buttons();
+  }
+
+  async function update_all() {
+    // update_remotes queries LUMI-O projects for expiry time
+    await Promise.allSettled([update_allas_projects(), update_remotes(true)]);
+    update_tabs();
+    $("#loading_spinner").hide();
   }
 
   async function delete_remote(remote) {
@@ -208,38 +305,48 @@
       remove_remote_links(res.removed || []);
       refresh_remotes();
       addAlert("Success", `Successfully deleted ${remote}. ${backup_file_message(res.backup)}`, "success");
-      const valid_auth = $("#token_expiry_info").is(":visible");
-      await update_remotes(valid_auth);
+      await update_remotes();
     } catch (err) {
       addError("An error occurred when deleting the remote.", err);
     }
   }
 
   async function revoke_remote(remote) {
-    let data = { "remote": remote };
+    const endpoint = $("#remotes_table tbody > tr").filter(function() { return $(this).data("name") === remote; }).first().data("endpoint");
     try {
-      const res = await api_post("/revoke", data);
+      let data = { "remote": remote };
+      const res = await api_post("/revoke", data, true, endpoint === "lumio");
       remove_remote_links(res.removed || []);
       refresh_remotes();
       addAlert("Success", `Successfully revoked the access token for ${remote} and deleted the remote. ${backup_file_message(res.backup)}`, "success");
       $("#confirmModal").modal("hide");
-      await update_remotes(true);
+      await update_remotes();
     } catch (err) {
       addError("An error occurred when revoking token and deleting the remote.", err);
       $("#confirmModal").modal("hide");
     }
   }
 
-  function set_remotes(remotes, revoke) {
+  function set_remotes(remotes) {
+    const existing_remotes = $("#remotes_table tbody > tr");
     remotes.sort((a, b) => a.name.localeCompare(b.name));
     const table_rows = remotes.map((remote) => {
+      const existing = existing_remotes.filter(function() { return $(this).data("name") === remote["name"] });
       const tr = document.createElement("tr");
+      $(tr)
+        .data("name", remote["name"])
+        .data("endpoint", remote["endpoint"])
+        .data("type", remote["type"]);
       const name_td = document.createElement("td");
       $(name_td).text(remote.name);
       const type_td = document.createElement("td");
       $(type_td).text(remote.type);
       const expiry_td = document.createElement("td");
-      $(expiry_td).text(format_expiry(remote.expires));
+      // Attempt to copy expiry value from previous version of table.
+      $(expiry_td).addClass("expiry").text(
+        remote.expires ?
+          format_expiry(remote.expires) :
+          (existing.find(".expiry").text() || ""));
       const action_td = document.createElement("td");
       const delete_button = document.createElement("button");
       $(delete_button)
@@ -251,7 +358,6 @@
       $(revoke_button)
         .addClass("btn btn-primary revoke-button")
         .text("Revoke")
-        .prop("disabled", !(revoke && (remote.type.toLowerCase() === "s3" || remote.type.toLowerCase() === "swift")))
         .on("click",
           () => {
             if (remote.type.toLowerCase() === "s3") {
@@ -263,8 +369,9 @@
             } else {
               revoke_remote(remote.name)
             }
-          }
-        );
+          })
+          // Copy state of button from previous table if it exists.
+        .prop("disabled", existing.length ? existing.find(".revoke-button").prop("disabled") : true);
       action_td.append(revoke_button);
       $(tr).append(name_td, type_td, expiry_td, action_td);
       return tr;
@@ -275,51 +382,65 @@
     $("#remotes_table_empty").toggleClass("d-none", remotes.length > 0);
   };
 
-  async function update_remotes(revoke = false) {
+  function update_revoke_buttons() {
+    $('#remotes_table tbody > tr').each(function() {
+      const endpoint = $(this).data("endpoint");
+      const type = $(this).data("type").toLowerCase();
+      const expiry = $(this).find(".expiry").text();
+      const has_expiry = expiry !== "" && expiry !== "Expired";
+      const swift_allas = type === "swift" && ($(this).data("name") || "").startsWith("allas");
+      const s3_allas = (endpoint !== "lumio" && type === "s3") && ($(this).data("name") || "").startsWith("s3allas");
+      const can_revoke =
+        (endpoint === "lumio" && has_expiry) || // LUMI-O
+        (
+          (has_expiry && swift_allas && has_allas_auth() ) || // Allas Swift
+          (s3_allas && has_allas_auth()) // Allas S3 (probably)
+        );
+      $(this).find(".revoke-button").prop("disabled", !can_revoke);
+    });
+  }
+
+  // Adds expiry text to LUMI-O remotes
+  function update_lumio_remote_info(projects) {
+    const rows = $('#remotes_table tbody > tr')
+      .filter(function () { return $(this).data("endpoint") === "lumio"; });
+    for (const project of projects) {
+      const pub = rows.filter(function () { return $(this).data("name") === `lumi-${project.Name}-public` });
+      const priv = rows.filter(function () { return $(this).data("name") === `lumi-${project.Name}-private` });
+      const expiry_text = project["expires"] ? format_expiry(project.expires) : "Expired";
+      pub.find(".expiry").text(expiry_text);
+      priv.find(".expiry").text(expiry_text);
+    }
+  }
+
+  async function update_remotes(update_lumio_expiry = true) {
     try {
       const remotes = await api_get("/remotes", true);
-      set_remotes(remotes, revoke);
-      $("#remotes_container").removeClass("d-none");
+      set_remotes(remotes);
+      update_revoke_buttons();
+      if (update_lumio_expiry) {
+        await update_lumio_projects();
+      }
     } catch (err) {
       addError("An error occurred when updating the list of remotes.", err);
     }
+    update_revoke_buttons();
   }
 
-  async function revoke_os_tokens() {
+  async function add_all(endpoint) {
     try {
-      await api_post("/revoke_tokens");
-      update_projects();
-    } catch (err) {
-      addError("An error occurred when revoking the tokens", err);
-      $("#confirmModal").modal("hide");
-    }
-  }
-
-  async function add_all() {
-    try {
-      const res = await api_post("/add_all", {"remote_type": "swift"});
-      await update_remotes(true);
-      (res.added || []).forEach(add_remote_links);
-      addAlert("Success", `Successfully added Swift remotes for all projects. ${backup_file_message(res.backup)}`, "success");
-    } catch (err) {
+      const res = await api_post("/add_all", {"remote_type": endpoint === "lumio" ? "lumio" : "swift"}, true, endpoint === "lumio");
+      await update_remotes(endpoint === "lumio");
+      add_remote_links(res.added || []);
+      addAlert("Success", `Successfully added ${endpoint === "lumio" ? "LUMI-O" : "Swift"} remotes for all projects. ${backup_file_message(res.backup)}`, "success");
+    } catch(err) {
       let added_remotes = "";
       if (err.data && err.data.added && err.data.added.length) {
         added_remotes = `Remote${err.data.added.length > 1 ? 's' : ''} ${err.data.added.join(", ")} ${err.data.added.length > 1 ? 'were' : 'was'} added successfully. ${backup_file_message(err.data.backup)}`;
         add_remote_links(err.data.added);
-        update_remotes(true);
+        update_remotes(endpoint === "lumio");
       }
-      addError(`An error occurred when adding Swift remotes for all projects. ${added_remotes}`, err);
-    }
-  }
-
-  async function update_expiry() {
-    try {
-      const expiry = (await api_get("/status")).expires;
-      $(".token_expiry").text(format_expiry(expiry));
-    } catch (err) {
-      if (!(err.response && err.response.status === 401)) {
-        console.error("Error updating token expiry:", err.message)
-      }
+      addError(`An error occurred when adding remotes for all projects. ${added_remotes}`, err);
     }
     refresh_remotes();
   }
@@ -369,9 +490,9 @@
     $(".btn-add-all").on("click", function (event) {
       event.preventDefault();
       $(this).prop("disabled", true);
-      add_all().then(() => { $(this).prop("disabled", false) });
+      add_all($(this).data("endpoint")).then(() => { $(this).prop("disabled", false) });
     });
-    await Promise.all([update_projects(), update_expiry()]);
+    await update_all();
   })();
   $(".add-remote-form").on("ajax:success", function(event, data) {
     const xhr = event.originalEvent.detail[2];
@@ -388,8 +509,7 @@
   });
 
   $(".renew-allas-token-form").on("ajax:success", async function(event, data) {
-    $("#auth_container").addClass("d-none");
-    await Promise.all([update_projects(), update_expiry()]);
+    await update_allas_projects();
   });
   $(".renew-allas-token-form").on("ajax:error", function(event, data) {
     const xhr = event.originalEvent.detail[2];
