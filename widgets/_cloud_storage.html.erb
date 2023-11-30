@@ -1,5 +1,5 @@
 <% api_base_url = "/pun/sys/ood-cloud-storage-conf" %>
-<% project_files_url = files_path(fs: "allas-") %>
+<% lumio_api_base_url = "/lumio" %>
 <%= render :layout => 'widgets/container', :locals => {:title => "Cloud storage configuration" } do %>
   <div id="alerts-container"></div>
   <div id="remotes_container" class="d-none mb-3">
@@ -71,6 +71,7 @@
 
 <script>
   const API_BASE_URL = "<%= api_base_url -%>";
+  const LUMIO_API_BASE_URL = "<%= lumio_api_base_url -%>";
 
   function addAlert(title, content, type = "info", extra_message_title = null, extra_messages = []) {
     const extra_content = extra_messages.map(msg => $("<p></p>", {class: "mb-0"}).text(msg));
@@ -123,7 +124,7 @@
     }
   }
 
-  async function parse_response(res, json) {
+  async function parse_response(res, json, lumio = false) {
     if (res.ok) {
       return await (json ? res.json() : res.text());
     } else {
@@ -132,17 +133,19 @@
     }
   }
 
-  async function api_get(url, json = true) {
-    const res = await fetch(`${API_BASE_URL}${url}`);
+  async function api_get(url, json = true, lumio = false) {
+    const API_URL = lumio ? LUMIO_API_BASE_URL : API_BASE_URL;
+    const res = await fetch(`${API_URL}${url}`);
     return await parse_response(res, json);
   }
 
-  async function api_post(url, formData = {}, json = true) {
+  async function api_post(url, formData = {}, json = true, lumio = false) {
     const body = new FormData();
     for (const [key, value] of Object.entries(formData)) {
       body.append(key, value);
     }
-    const res = await fetch(`${API_BASE_URL}${url}`, { body, method: "post" });
+    const API_URL = lumio ? LUMIO_API_BASE_URL : API_BASE_URL;
+    const res = await fetch(`${API_URL}${url}`, { body, method: "post" });
     return await parse_response(res, json);
   }
 
