@@ -1,6 +1,3 @@
-<% if params.has_key?("refresh") %>
-  <% render "widgets/refresh_remotes" %>
-<% end %>
 <% api_base_url = "/pun/sys/ood-cloud-storage-conf" %>
 <% project_files_url = files_path(fs: "allas-") %>
 <%= render :layout => 'widgets/container', :locals => {:title => "Cloud storage configuration" } do %>
@@ -165,14 +162,6 @@
     return `${s3 ? "s3" : ""}allas-${project}`
   }
 
-  function force_refresh() {
-    const url = new URL(window.location);
-    const params = new URLSearchParams(url.search);
-    url.searchParams.delete("refresh");
-    url.searchParams.append("refresh", "");
-    fetch(url);
-  }
-
   function set_projects(projects) {
     const project_selects = $(".project_select");
     project_selects.empty();
@@ -207,7 +196,7 @@
     try {
       const res = await api_post("/delete", data);
       remove_remote_links(res.removed || []);
-      force_refresh();
+      refresh_remotes();
       addAlert("Success", `Successfully deleted ${remote}. ${backup_file_message(res.backup)}`, "success");
       const valid_auth = $("#token_expiry_info").is(":visible");
       await update_remotes(valid_auth);
@@ -221,7 +210,7 @@
     try {
       const res = await api_post("/revoke", data);
       remove_remote_links(res.removed || []);
-      force_refresh();
+      refresh_remotes();
       addAlert("Success", `Successfully revoked the access token for ${remote} and deleted the remote. ${backup_file_message(res.backup)}`, "success");
       $("#confirmModal").modal("hide");
       await update_remotes(true);
@@ -311,7 +300,6 @@
       }
       addError(`An error occurred when adding Swift remotes for all projects. ${added_remotes}`, err);
     }
-    force_refresh();
   }
 
   async function update_expiry() {
@@ -323,6 +311,7 @@
         console.error("Error updating token expiry:", err.message)
       }
     }
+    refresh_remotes();
   }
 
   function show_confirm_modal(title, text, callback, confirmText = "OK", cancelText = "Cancel") {
@@ -380,8 +369,8 @@
     const xhr = event.originalEvent.detail[2];
     const res = JSON.parse(xhr.responseText);
     add_remote_links(res.added);
-    force_refresh();
     addAlert("Success", `Successfully configured ${res.added[0]} remote. ${backup_file_message(res.backup)}`, "success");
+    refresh_remotes();
     update_remotes(true);
   });
   $(".add-remote-form").on("ajax:error", function(event, data) {
