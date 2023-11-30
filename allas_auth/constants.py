@@ -5,6 +5,9 @@ USER = pwd.getpwuid(os.geteuid()).pw_name
 
 TMPDIR = os.path.join("/tmp", USER)
 
+# Used to check if Rclone remote is an LUMI-O remote.
+LUMIO_ENDPOINTS = ["lumidata.eu", "lumisade.csc.fi"]
+
 # OS_* are env variables used by OpenStack (CLI).
 BASE_OS_ENV = {
     "OS_AUTH_URL": os.environ.get("OS_AUTH_URL", "https://pouta.csc.fi:5001/v3"),
@@ -19,6 +22,8 @@ OS_STORAGE_URL_BASE = "https://a3s.fi:443/swift/v1/"
 RCLONE_CONF = os.environ.get(
     "RCLONE_CONFIG", os.path.join(os.path.expanduser("~"), ".config/rclone/rclone.conf")
 )
+
+LUMIO_RCLONE_CONF = os.environ.get("LUMIO_RCLONE_CONF", os.path.join("/tmp/keys", USER))
 
 RCLONE_BASE_S3_CONF = {
     "type": "s3",

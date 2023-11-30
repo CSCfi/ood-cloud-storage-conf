@@ -5,6 +5,8 @@ import shutil
 import time
 
 from .constants import (
+    LUMIO_ENDPOINTS,
+    LUMIO_RCLONE_CONF,
     OS_STORAGE_URL_BASE,
     RCLONE_BASE_S3_CONF,
     RCLONE_BASE_SWIFT_CONF,
@@ -49,6 +51,16 @@ def current_rclone_conf():
     return config
 
 
+def current_lumio_conf():
+    config = configparser.ConfigParser(strict=False)
+    # Missing config file is handled ok (nothing added to config).
+    try:
+        config.read(LUMIO_RCLONE_CONF)
+    except configparser.Error as err:
+        raise RcloneError("Could not read Rclone config") from err
+    return config
+
+
 # Writes Rclone config to disk.
 def write_rclone_conf(conf):
     try:
@@ -81,11 +93,36 @@ def add_rclone_s3_conf(project_name, access_key, secret):
     return name, write_rclone_conf(conf)
 
 
-# Deletes a remote for a project from the existing Rclone config.
-def delete_rclone_remote(remote_name):
-    create_private_dir(os.path.dirname(RCLONE_CONF))
+# Copies a list of remotes from the lumio rclone conf to the normal rclone conf.
+def copy_lumio_remotes(remotes):
+    lumio_conf = current_lumio_conf()
     conf = current_rclone_conf()
-    conf.remove_section(remote_name)
+    added = []
+    for remote in remotes:
+        if lumio_conf.has_section(remote):
+            conf[remote] = lumio_conf[remote]
+            added.append(remote)
+    return added, write_rclone_conf(conf)
+
+
+# Copy over all lumio remotes to the normal rclone conf.
+def copy_all_lumio_remotes():
+    lumio_conf = current_lumio_conf()
+    conf = current_rclone_conf()
+    added = []
+    for remote in lumio_conf.sections():
+        conf[remote] = lumio_conf[remote]
+        added.append(remote)
+    return added, write_rclone_conf(conf)
+
+
+# Deletes a remote for a project from the existing Rclone config.
+def delete_rclone_remote(remote_names):
+    create_private_dir(os.path.dirname(RCLONE_CONF))
+    remotes = [remote_names] if isinstance(remote_names, str) else remote_names
+    conf = current_rclone_conf()
+    for remote in remotes:
+        conf.remove_section(remote)
     return write_rclone_conf(conf)
 
 
@@ -112,6 +149,11 @@ def add_rclone_swift_conf(
         return name, conf
 
 
+def lumio_remotes():
+    conf = current_lumio_conf()
+    return conf.sections()
+
+
 def list_remotes():
     conf = current_rclone_conf()
     # List remotes with name and type.
@@ -120,6 +162,16 @@ def list_remotes():
             lambda remote: {
                 "name": remote,
                 "type": conf.get(remote, "type", fallback=""),
+                "endpoint": "lumio"
+                if (
+                    any(
+                        [
+                            endpoint in conf.get(remote, "endpoint", fallback="")
+                            for endpoint in LUMIO_ENDPOINTS
+                        ]
+                    )
+                )
+                else "other",
             },
             conf.sections(),
         )
