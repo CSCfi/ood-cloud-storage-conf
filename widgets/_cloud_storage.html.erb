@@ -33,15 +33,15 @@
     </p>
     <span class="font-weight-bold">Configure new remotes:</span>
     <ul class="nav nav-tabs" id="form_tabs" role="tablist">
-      <li class="nav-item">
+      <li class="nav-item allas">
         <a class="nav-link active" id="nav_btn_allas_s3" data-toggle="tab" data-target="#tab_allas_s3" href="#" role="tab" aria-controls="tab_allas_s3" aria-selected="true">Allas S3</a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item allas">
         <a class="nav-link" id="nav_btn_allas_swift" data-toggle="tab" data-target="#tab_allas_swift" href="#" role="tab" aria-controls="tab_allas_swift" aria-selected="false">Allas Swift</a>
       </li>
     </ul>
     <div class="tab-content" id="form_tab_content">
-      <div class="tab-pane" id="tab_allas_swift" role="tabpanel" aria-labelledby="nav_tbn_allas_swift">
+      <div class="tab-pane allas" id="tab_allas_swift" role="tabpanel" aria-labelledby="nav_tbn_allas_swift">
         <p class="mt-2">A new Swift access token will be generated for each new remote. The new token will be valid until <span class="token_expiry"></span>.</p>
         <%= bootstrap_form_tag :url => "#{api_base_url}/add", :remote => true, :html => { :id => "add_swift_remote", :class => "add-remote-form" } do |f| %>
           <%= f.select :project, [], { :label => "Project" }, :class => "project_select", :id => nil %>
@@ -50,7 +50,7 @@
           <button class="btn btn-primary mt-2" id="add_all">Add Swift remotes for all projects</button>
         <% end %>
       </div>
-      <div class="tab-pane show active" id="tab_allas_s3" role="tabpanel" aria-labelledby="nav_btn_allas_s3">
+      <div class="tab-pane allas show active" id="tab_allas_s3" role="tabpanel" aria-labelledby="nav_btn_allas_s3">
         <p class="mt-2">If an S3 access token already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens are valid forever.</p>
         <%= bootstrap_form_tag :url => "#{api_base_url}/add", :remote => true, :html => { :id => "add_s3_remote", :class => "add-remote-form" } do |f| %>
           <%= f.select :project, [], { :label => "Project" }, :class => "project_select", :id => nil %>
