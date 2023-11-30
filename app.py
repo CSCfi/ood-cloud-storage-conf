@@ -106,6 +106,7 @@ def index():
     return "", 200
 
 
+# Add a new S3 or Swift Allas remote for a project.
 @app.route("/add", methods=["POST"])
 @extract_param("project")
 @extract_param("remote_type")
@@ -121,6 +122,7 @@ def add(os_token=None, project=None, remote_type=None):
         return error_message("Invalid project name or ID")
     remote = None
     backup_file = None
+
     if remote_type == "s3":
         token = get_or_create_s3_token(os_token, project["ID"])
         remote, backup_file = add_rclone_s3_conf(
@@ -135,6 +137,7 @@ def add(os_token=None, project=None, remote_type=None):
     return changed_remotes(added=[remote], backup=backup_file)
 
 
+# Add (Swift) remotes for all Allas projects.
 @app.route("/add_all", methods=["POST"])
 @extract_param("remote_type")
 @requires_auth
@@ -224,11 +227,12 @@ def add_all_lumio():
     return add_lumio(remotes=lumio_remotes())
 
 
+# Delete a remote from the Rclone config.
 @app.route("/delete", methods=["POST"])
 @extract_param("remote")
 def delete_project(remote=None):
     backup_file = delete_rclone_remote(remote)
-    return changed_remotes(removed=[remote],backup=backup_file)
+    return changed_remotes(removed=[remote], backup=backup_file)
 
 
 # Delete a lumio remotes for a project from the Rclone config.
@@ -244,6 +248,7 @@ def delete_lumio_remote(remote=None):
     return changed_remotes(removed=remotes, backup=backup_file)
 
 
+# Revoke an Allas remote and delete it from the Rclone config.
 @app.route("/revoke", methods=["POST"])
 @extract_param("remote")
 @requires_auth
