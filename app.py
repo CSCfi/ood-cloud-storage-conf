@@ -1,8 +1,11 @@
-import configparser
+import base64
+import json
 import os
+import re
 from functools import wraps
+from urllib.parse import unquote
 
-from flask import Flask, jsonify, request
+from flask import Flask, escape, jsonify, make_response, request
 
 from allas_auth.constants import OS_STORAGE_URL_BASE, RCLONE_BASE_S3_CONF
 from allas_auth.openstack_utils import (
@@ -21,9 +24,12 @@ from allas_auth.rclone_utils import (
     RcloneError,
     add_rclone_s3_conf,
     add_rclone_swift_conf,
+    copy_all_lumio_remotes,
+    copy_lumio_remotes,
     delete_rclone_remote,
     get_remote_option,
     list_remotes,
+    lumio_remotes,
     write_rclone_conf,
 )
 from allas_auth.token_handler import (
@@ -174,11 +180,68 @@ def add_all(os_token=None, remote_type=None):
     return changed_remotes(added=added, backup=backup_file)
 
 
+# Copy configuration for either a project or an already known list of remotes to the normal Rclone config.
+def add_lumio(project=None, remotes=None):
+    errors = []
+
+    errors = json.loads(
+        base64.b64decode(unquote(request.cookies.get("lumio-errors")))
+    ).get("errors", []) if "lumio-errors" in request.cookies else []
+    errors = list(map(lambda e: escape(e), errors))
+
+    remotes = (
+        remotes
+        if project is None
+        else [f"lumi-{project}-private", f"lumi-{project}-public"]
+    )
+
+    remotes, backup_file = copy_lumio_remotes(remotes)
+    if len(errors) > 0:
+        res = make_response(
+            error_message(
+                "",
+                500,
+                errors,
+                added=remotes,
+                backup=backup_file,
+            )
+        )
+        res.delete_cookie("lumio-errors")
+        return res
+    return changed_remotes(added=remotes, backup=backup_file)
+
+
+# Copy LUMI-O remotes for a project from the lumio Rclone config to the normal config.
+@app.route("/add_lumio", methods=["POST"])
+@extract_param("project")
+def add_single_lumio(project=None):
+    return add_lumio(project=project)
+
+
+# Copy all LUMI-O remotes from the LUMI-O Rclone config to the normal config.
+@app.route("/add_all_lumio", methods=["POST"])
+def add_all_lumio():
+    return add_lumio(remotes=lumio_remotes())
+
+
 @app.route("/delete", methods=["POST"])
 @extract_param("remote")
 def delete_project(remote=None):
     backup_file = delete_rclone_remote(remote)
     return changed_remotes(removed=[remote],backup=backup_file)
+
+
+# Delete a lumio remotes for a project from the Rclone config.
+@app.route("/delete_lumio", methods=["POST"])
+@extract_param("remote")
+def delete_lumio_remote(remote=None):
+    # Attempt to extract project from remote name (e.g. lumi-123456-public). Assume remote name is already project if it fails.
+    m = re.search(r"lumi-(\d+)-p", remote)
+    project = m.groups()[0] if m and m.groups()[0] else remote
+
+    remotes = [f"lumi-{project}-private", f"lumi-{project}-public"]
+    backup_file = delete_rclone_remote(remotes)
+    return changed_remotes(removed=remotes, backup=backup_file)
 
 
 @app.route("/revoke", methods=["POST"])
