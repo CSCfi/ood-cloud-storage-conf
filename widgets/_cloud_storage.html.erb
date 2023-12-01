@@ -16,7 +16,13 @@
       <tbody>
       </tbody>
     </table>
-    <p id="remotes_table_empty">No remotes have been configured.</p>
+    <p id="remotes_table_empty" class="d-none">No remotes have been configured.</p>
+    <div id="remotes_table_loading_spinner" class="text-center mt-3">
+      <div class="spinner-border clearfix">
+        <span class="sr-only">Loading...</span>
+      </div>
+      <p>Loading remotes...</p>
+    </div>
     <p>The table above lists the currently configured remotes in the Rclone config.</p>
     <p>Deleting a remote only removes the configured Rclone remote, while keeping the remote's access token valid as it may be used outside of the web interface. To revoke the access token too, you can use the revoke button for the remote, which will revoke the access token if possible and delete the remote.</p>
   </div>
@@ -416,6 +422,7 @@
   async function update_remotes(update_lumio_expiry = true) {
     try {
       const remotes = await api_get("/remotes", true);
+      $("#remotes_table_loading_spinner").hide();
       set_remotes(remotes);
       update_revoke_buttons();
       if (update_lumio_expiry) {
@@ -423,6 +430,7 @@
       }
     } catch (err) {
       addError("An error occurred when updating the list of remotes.", err);
+      $("#remotes_table_loading_spinner").hide();
     }
     update_revoke_buttons();
   }
