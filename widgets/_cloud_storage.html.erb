@@ -26,12 +26,6 @@
     <p>The table above lists the currently configured remotes in the Rclone config.</p>
     <p>Deleting a remote only removes the configured Rclone remote, while keeping the remote's access token valid as it may be used outside of the web interface. To revoke the access token too, you can use the revoke button for the remote, which will revoke the access token if possible and delete the remote.</p>
   </div>
-  <div id="loading_spinner" class="text-center">
-    <div class="spinner-border clearfix">
-      <span class="sr-only">Loading...</span>
-    </div>
-    <p>Checking available projects...</p>
-  </div>
   <div id="add_remote_container" class="d-none">
     <p>
     New Rclone remotes for can be created below. After configuring a remote, you will be able to access it in the Files dropdown in the navigation menu.
@@ -95,6 +89,12 @@
         <% end %>
       </div>
     </div>
+  </div>
+  <div id="loading_spinner" class="text-center">
+    <div class="spinner-border clearfix">
+      <span class="sr-only">Loading...</span>
+    </div>
+    <p>Checking available projects...</p>
   </div>
 <% end %>
 
@@ -209,11 +209,14 @@
     const tab_panes = $("#add_remote_container .tab-pane:not(.d-none)");
     const tab_buttons = $("#add_remote_container .nav-item:not(.d-none) > .nav-link");
 
-    tab_buttons.removeClass("active");
-    tab_panes.removeClass("show active");
+    const already_has_active = tab_buttons.filter(".active").length && tab_panes.filter(".active").length;
     if (tab_buttons.length && tab_panes.length) {
-      tab_buttons.first().addClass("active");
-      tab_panes.first().addClass("show active");
+      if (!already_has_active) {
+        tab_buttons.removeClass("active");
+        tab_panes.removeClass("active");
+        tab_buttons.first().addClass("active");
+        tab_panes.first().addClass("active");
+      }
       $("#add_remote_container").removeClass("d-none");
     } else {
       $("#add_remote_container").addClass("d-none");
@@ -299,8 +302,7 @@
 
   async function update_all() {
     // update_remotes queries LUMI-O projects for expiry time
-    await Promise.allSettled([update_allas_projects(), update_remotes(true)]);
-    update_tabs();
+    await Promise.allSettled([update_allas_projects().then(update_tabs), update_remotes(true).then(update_tabs)]);
     $("#loading_spinner").hide();
   }
 
