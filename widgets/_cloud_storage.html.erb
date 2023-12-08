@@ -53,7 +53,7 @@
           <% end %>
         </div>
         <div class="allas-form d-none">
-          <p class="mt-2">If an S3 access token already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens are valid forever.</p>
+          <p class="mt-2">If an S3 access token already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens are valid forever. You can find documentation about the difference between Swift and S3 <a href="https://docs.csc.fi/data/Allas/introduction/#protocols">here</a>.</p>
           <%= bootstrap_form_tag :url => "#{api_base_url}/add", :remote => true, :html => { :id => "add_s3_remote", :class => "add-remote-form" } do |f| %>
             <%= f.select :project, [], { :label => "Project" }, :class => ["project_select", "allas"], :id => nil %>
             <%= f.hidden_field :remote_type, :value => :s3, :id => nil  %>
@@ -70,7 +70,7 @@
           <% end %>
         </div>
         <div class="allas-form d-none">
-          <p class="mt-2">A new Swift access token will be generated for each new remote. The new token will be valid until <span class="allas_token_expiry"></span>.</p>
+          <p class="mt-2">A new Swift access token will be generated for each new remote. The new token will be valid until <span class="allas_token_expiry"></span>. You can find documentation about the difference between Swift and S3 <a href="https://docs.csc.fi/data/Allas/introduction/#protocols">here</a>.</p>
           <%= bootstrap_form_tag :url => "#{api_base_url}/add", :remote => true, :html => { :id => "add_swift_remote", :class => "add-remote-form" } do |f| %>
             <%= f.select :project, [], { :label => "Project" }, :class => ["project_select", "allas"], :id => nil %>
             <%= f.hidden_field :remote_type, :value => :swift, :id => nil  %>
@@ -80,7 +80,7 @@
         </div>
       </div>
       <div class="tab-pane lumio d-none" id="tab_lumio" role="tabpanel" aria-labelledby="nav_btn_lumio">
-        <p class="mt-2">If an S3 access token for the web interface already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens will be valid for 8 hours.</p>
+        <p class="mt-2">If an S3 access token for the web interface already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens will be valid for 7 days.</p>
         <%= bootstrap_form_tag :url => "#{lumio_api_base_url}/add", :remote => true, :html => { :id => "add_lumio_remote", :class => "add-remote-form" } do |f| %>
           <%= f.select :project, [], { :label => "Project" }, :class => ["project_select", "lumio"], :id => nil %>
           <%= f.hidden_field :remote_type, :value => :lumio, :id => nil  %>
