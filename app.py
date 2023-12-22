@@ -5,7 +5,8 @@ import re
 from functools import wraps
 from urllib.parse import unquote
 
-from flask import Flask, escape, jsonify, make_response, request
+from flask import Flask, jsonify, make_response, request
+from markupsafe import escape
 
 from allas_auth.constants import OS_STORAGE_URL_BASE, RCLONE_BASE_S3_CONF
 from allas_auth.openstack_utils import (
