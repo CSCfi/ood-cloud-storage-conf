@@ -512,7 +512,7 @@
     const res = JSON.parse(xhr.responseText);
     add_remote_links(res.added);
     refresh_remotes();
-    addAlert("Success", `Successfully configured ${res.added.join(", ")} remote${res.added.length > 0 ? "s" : ""}. ${backup_file_message(res.backup)}`, "success");
+    addAlert("Success", `Successfully configured ${res.added.join(", ")} remote${res.added.length > 1 ? "s" : ""}. ${backup_file_message(res.backup)}`, "success");
     update_remotes(true);
   });
   $(".add-remote-form").on("ajax:error", function(event, data) {
