@@ -16,7 +16,7 @@ class OpenStackError(Exception):
 
     def cause(self):
         if isinstance(self.__context__, CalledProcessError):
-            return f"openstack exited with status {self.__context__.returncode}: {self.__context__.stderr}"
+            return f"{self.__context__.cmd[0]} exited with status {self.__context__.returncode}: {self.__context__.stderr or self.__context__.stdout}"
         elif not self.__context__ is None:
             return str(self.__context__)
         else:

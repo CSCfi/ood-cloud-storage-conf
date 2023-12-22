@@ -38,6 +38,7 @@ from allas_auth.token_handler import (
     parse_expires,
     save_os_token,
 )
+from allas_auth.utils import configure_s3cmd
 
 app = Flask(__name__)
 
@@ -187,9 +188,13 @@ def add_all(os_token=None, remote_type=None):
 def add_lumio(project=None, remotes=None):
     errors = []
 
-    errors = json.loads(
-        base64.b64decode(unquote(request.cookies.get("lumio-errors")))
-    ).get("errors", []) if "lumio-errors" in request.cookies else []
+    errors = (
+        json.loads(base64.b64decode(unquote(request.cookies.get("lumio-errors")))).get(
+            "errors", []
+        )
+        if "lumio-errors" in request.cookies
+        else []
+    )
     errors = list(map(lambda e: escape(e), errors))
 
     remotes = (
@@ -199,6 +204,21 @@ def add_lumio(project=None, remotes=None):
     )
 
     remotes, backup_file = copy_lumio_remotes(remotes)
+
+    # Rails forms always sends the form value for checkboxes as a an array where the last one is the real one.
+    s3cmd = request.form.getlist("s3cmd")
+    if len(s3cmd) and s3cmd[-1] == "1" and len(remotes):
+        remote = remotes[0]
+        project = (
+            remote.removeprefix("lumi-")
+            .removesuffix("-public")
+            .removesuffix("-private")
+        )
+        access_key = get_remote_option(remote, "access_key_id")
+        secret = get_remote_option(remote, "secret_access_key")
+        if access_key and secret:
+            configure_s3cmd(project, access_key, secret)
+
     if len(errors) > 0:
         res = make_response(
             error_message(
