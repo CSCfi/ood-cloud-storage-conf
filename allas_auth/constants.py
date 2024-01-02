@@ -18,7 +18,7 @@ BASE_OS_ENV = {
 }
 
 OS_STORAGE_URL_BASE = "https://a3s.fi:443/swift/v1/"
-LUMIO_CONF_TOOL = "/opt/csc/lumi-o-auth/lumio-conf"
+LUMIO_CONF_TOOL = "/opt/csc/lumio-conf"
 
 RCLONE_CONF = os.environ.get(
     "RCLONE_CONFIG", os.path.join(os.path.expanduser("~"), ".config/rclone/rclone.conf")
