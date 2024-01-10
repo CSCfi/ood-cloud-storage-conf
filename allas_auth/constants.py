@@ -24,8 +24,6 @@ RCLONE_CONF = os.environ.get(
     "RCLONE_CONFIG", os.path.join(os.path.expanduser("~"), ".config/rclone/rclone.conf")
 )
 
-S3CMD_CONF = os.path.join(os.path.expanduser("~"), ".s3cfg")
-
 LUMIO_RCLONE_CONF = os.environ.get("LUMIO_RCLONE_CONF", os.path.join("/tmp/csc-ood-lumio-keys", USER))
 
 RCLONE_BASE_S3_CONF = {
