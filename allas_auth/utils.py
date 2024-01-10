@@ -3,8 +3,8 @@ import pathlib
 import pwd
 import subprocess
 
-from .constants import LUMIO_CONF_TOOL
-from .openstack_utils import OpenStackError, wrap_error
+from .constants import LUMIO_CONF_TOOL, S3CMD_CONF
+from .openstack_utils import wrap_error
 
 
 # Create directory with perms 0o700, or chmod existing dir to 0o700.
@@ -32,6 +32,8 @@ def configure_s3cmd(project_id, access_key, secret):
             "all",
             "--configure-only",
             "s3cmd",
+            "--config-path",
+            f"s3cmd:#{S3CMD_CONF}"
         ],
         env=env,
         capture_output=True,
