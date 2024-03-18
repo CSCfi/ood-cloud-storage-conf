@@ -59,7 +59,13 @@
             <%= f.hidden_field :remote_type, :value => :s3, :id => nil  %>
             <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
           <% end %>
+        </div>
+        <div class="allas-loading-spinner text-center mt-5">
+          <div class="spinner-border clearfix">
+            <span class="sr-only">Loading...</span>
           </div>
+          <p>Checking available projects...</p>
+        </div>
       </div>
       <div class="tab-pane allas d-none" id="tab_allas_swift" role="tabpanel" aria-labelledby="nav_btn_allas_swift">
         <div class="allas-auth-container mt-2 d-none">
@@ -78,12 +84,18 @@
             <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="allas_swift">Add Swift remotes for all projects</button>
           <% end %>
         </div>
+        <div class="allas-loading-spinner text-center mt-5">
+          <div class="spinner-border clearfix">
+            <span class="sr-only">Loading...</span>
+          </div>
+          <p>Checking available projects...</p>
+        </div>
       </div>
       <div class="tab-pane lumio d-none" id="tab_lumio" role="tabpanel" aria-labelledby="nav_btn_lumio">
         <p class="mt-2">If an S3 access token for the web interface already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens will be valid for 7 days.</p>
         <p>Configuration for usage with s3cmd can also be generated and placed in ~/.s3cfg-lumi-&lt;project&gt;.</p>
         <%= bootstrap_form_tag :url => "#{lumio_api_base_url}/add", :remote => true, :html => { :id => "add_lumio_remote", :class => "add-remote-form" } do |f| %>
-          <%= f.select :project, [], { :label => "Project" }, :class => ["project_select", "lumio"], :id => nil %>
+          <%= f.select :project, [["Loading projects...", ""]], { :label => "Project" }, :class => ["project_select", "lumio"], :id => nil %>
           <%= f.check_box :s3cmd, :label => "Generate s3cmd configuration" %>
           <br>
           <%= f.hidden_field :remote_type, :value => :lumio, :id => nil  %>
@@ -92,12 +104,6 @@
         <% end %>
       </div>
     </div>
-  </div>
-  <div id="loading_spinner" class="text-center">
-    <div class="spinner-border clearfix">
-      <span class="sr-only">Loading...</span>
-    </div>
-    <p>Checking available projects...</p>
   </div>
 <% end %>
 
@@ -233,8 +239,10 @@
 
   // Toggles the visibility of Allas forms and tabs, based on access and auth state
   function toggle_allas(access, auth) {
-    $(".allas-auth-container").toggleClass("d-none", access && auth || !access);
-    $(".allas-form").toggleClass("d-none", !(access && auth));
+    const unknown_auth = auth === undefined;
+    $(".allas-loading-spinner").toggleClass("d-none", !unknown_auth);
+    $(".allas-auth-container").toggleClass("d-none", unknown_auth || access && auth);
+    $(".allas-form").toggleClass("d-none", unknown_auth || !(access && auth));
     $(".allas").toggleClass("d-none", !access);
   }
 
@@ -244,6 +252,16 @@
       .then(res => res["has_access"])
       .catch(err => {
         console.error("Error checking access to Allas:", err);
+        return false;
+      });
+  }
+
+  // Checks if user has access to LUMI
+  function has_lumi_access() {
+    return api_get("/lumi_access", true, true)
+      .then(res => res["has_access"])
+      .catch(err => {
+        console.error("Error checking access to LUMI:", err);
         return false;
       });
   }
@@ -289,6 +307,14 @@
     }
   }
 
+  // Do a quick check for access to Allas/LUMI-O and update tab visibility
+  async function check_access_quick() {
+    const lumio_access = await has_lumi_access();
+    const allas_access = await has_allas_access();
+    toggle_lumio(lumio_access);
+    toggle_allas(allas_access);
+  }
+
   // Updates the current LUMI-O projects list and UI state
   async function update_lumio_projects() {
     try {
@@ -305,8 +331,7 @@
 
   async function update_all() {
     // update_remotes queries LUMI-O projects for expiry time
-    await Promise.allSettled([update_allas_projects().then(update_tabs), update_remotes(true).then(update_tabs)]);
-    $("#loading_spinner").hide();
+    await Promise.allSettled([check_access_quick().then(update_tabs), update_allas_projects().then(update_tabs), update_remotes(true).then(update_tabs)]);
   }
 
   async function delete_remote(remote) {
