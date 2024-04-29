@@ -153,10 +153,20 @@
     }
   }
 
+  class AuthorizationError extends APIError {
+    constructor(message, errors = [], response = null, data = {}) {
+      super(message, errors, response, data);
+    }
+  }
+
   function parse_api_error(text, res) {
     try {
       const err = JSON.parse(text)
-      return new APIError(err.message, err.errors, res, {added: err.added, removed: err.removed, backup: err.backup});
+      if ((!res || res.status == 401) && (err.message === "Expired access token" || err.message === "Authorization error")) {
+        return new AuthorizationError(err.message, err.errors, res);
+      } else {
+        return new APIError(err.message, err.errors, res, {added: err.added, removed: err.removed, backup: err.backup});
+      }
     } catch (e) {
       return new APIError(text, [], res);
     }
@@ -171,20 +181,38 @@
     }
   }
 
-  async function api_get(url, json = true, lumio = false) {
+  async function api_get({url, json = true, lumio = false, attempt_reauth = false}) {
     const API_URL = lumio ? LUMIO_API_BASE_URL : API_BASE_URL;
     const res = await fetch(`${API_URL}${url}`);
-    return await parse_response(res, json);
+    try {
+      return await parse_response(res, json);
+    } catch (e) {
+      if (e instanceof AuthorizationError && lumio && attempt_reauth) {
+        await refresh_lumio_access_token();
+        return await api_get({ url, json, lumio, attempt_reauth: false });
+      } else {
+        throw e;
+      }
+    }
   }
 
-  async function api_post(url, formData = {}, json = true, lumio = false) {
+  async function api_post({url, formData = {}, json = true, lumio = false, attempt_reauth = false}) {
     const body = new FormData();
     for (const [key, value] of Object.entries(formData)) {
       body.append(key, value);
     }
     const API_URL = lumio ? LUMIO_API_BASE_URL : API_BASE_URL;
     const res = await fetch(`${API_URL}${url}`, { body, method: "post" });
-    return await parse_response(res, json);
+    try {
+      return await parse_response(res, json);
+    } catch (e) {
+      if (e instanceof AuthorizationError && lumio && attempt_reauth) {
+        await refresh_lumio_access_token();
+        return await api_post({ url, formData, json, lumio, attempt_reauth: false });
+      } else {
+        throw e;
+      }
+    }
   }
 
   // Formats the expiry Unix timestamp to a human readable format
@@ -248,7 +276,7 @@
 
   // Checks if user has access to Allas
   function has_allas_access() {
-    return api_get("/allas_access", true, true)
+    return api_get({ url: "/allas_access", json: true, lumio: true })
       .then(res => res["has_access"])
       .catch(err => {
         console.error("Error checking access to Allas:", err);
@@ -258,7 +286,7 @@
 
   // Checks if user has access to LUMI
   function has_lumi_access() {
-    return api_get("/lumi_access", true, true)
+    return api_get({ url: "/lumi_access", json: true, lumio: true })
       .then(res => res["has_access"])
       .catch(err => {
         console.error("Error checking access to LUMI:", err);
@@ -266,9 +294,19 @@
       });
   }
 
+  async function refresh_lumio_access_token() {
+    const url = `${LUMIO_API_BASE_URL}/refresh?redir=${LUMIO_API_BASE_URL}/lumi_access`;
+    const res = await fetch(url, { redirect: "follow" });
+    const redir_url = new URL(res.url)
+    const error_code = (new URL(res.url)).searchParams.get("error_code");
+    if (error_code || !res.ok) {
+      throw new APIError(`Refresh of OIDC access token failed: ${error_code || "Unknown error"}. Please try logging out and in again.`);
+    }
+  }
+
   // Returns Allas auth status and list of projects (empty if no auth)
   function get_allas_auth_and_projects() {
-    return api_get("/projects", true)
+    return api_get({ url: "/projects", json: true })
       .then(projects => {return { auth: true, projects }})
       .catch(err => {
         if (!(err.response && err.response.status === 401)) {
@@ -298,7 +336,7 @@
   // Update the Allas auth token expiry field. Field is used for auth status.
   async function update_expiry() {
     try {
-      const expiry = (await api_get("/status")).expires;
+      const expiry = (await api_get({ url: "/status" })).expires;
       $(".allas_token_expiry").text(format_expiry(expiry));
     } catch (err) {
       if (!(err.response && err.response.status === 401)) {
@@ -318,7 +356,7 @@
   // Updates the current LUMI-O projects list and UI state
   async function update_lumio_projects() {
     try {
-      const projects = await api_get("/projects", true, true);
+      const projects = await api_get({ url: "/projects", json: true, lumio: true, attempt_reauth: true });
       set_projects(projects, "lumio");
       update_lumio_remote_info(projects);
       toggle_lumio(true);
@@ -337,7 +375,7 @@
   async function delete_remote(remote) {
     let data = { "remote": remote };
     try {
-      const res = await api_post("/delete", data);
+      const res = await api_post({ url: "/delete", formData: data });
       remove_remote_links(res.removed || []);
       refresh_remotes();
       addAlert("Success", `Successfully deleted ${remote}. ${backup_file_message(res.backup)}`, "success");
@@ -351,7 +389,7 @@
     const endpoint = $("#remotes_table tbody > tr").filter(function() { return $(this).data("name") === remote; }).first().data("endpoint");
     try {
       let data = { "remote": remote };
-      const res = await api_post("/revoke", data, true, endpoint === "lumio");
+      const res = await api_post({ url: "/revoke", formData: data, json: true, lumio: endpoint === "lumio", attempt_reauth: true });
       remove_remote_links(res.removed || []);
       refresh_remotes();
       addAlert("Success", `Successfully revoked the access token for ${remote} and deleted the remote. ${backup_file_message(res.backup)}`, "success");
@@ -451,7 +489,7 @@
 
   async function update_remotes(update_lumio_expiry = true) {
     try {
-      const remotes = await api_get("/remotes", true);
+      const remotes = await api_get({ url: "/remotes", json: true });
       $("#remotes_table_loading_spinner").hide();
       set_remotes(remotes);
       update_revoke_buttons();
@@ -467,7 +505,7 @@
 
   async function add_all(endpoint) {
     try {
-      const res = await api_post("/add_all", {"remote_type": endpoint === "lumio" ? "lumio" : "swift"}, true, endpoint === "lumio");
+      const res = await api_post({ url: "/add_all", formData: {"remote_type": endpoint === "lumio" ? "lumio" : "swift"}, json: true, lumio: endpoint === "lumio", attempt_reauth: true });
       await update_remotes(endpoint === "lumio");
       add_remote_links(res.added || []);
       addAlert("Success", `Successfully added ${endpoint === "lumio" ? "LUMI-O" : "Swift"} remotes for all projects. ${backup_file_message(res.backup)}`, "success");
@@ -525,6 +563,7 @@
   }
 
   (async function () {
+    localStorage.removeItem("lumio-access-token-refresh");
     $(".btn-add-all").on("click", function (event) {
       event.preventDefault();
       $(this).prop("disabled", true);
@@ -543,6 +582,20 @@
   $(".add-remote-form").on("ajax:error", function(event, data) {
     const xhr = event.originalEvent.detail[2];
     const err = parse_api_error(xhr.responseText);
+    if (err instanceof AuthorizationError && (event.target && event.target.getAttribute("id") === "add_lumio_remote") && !localStorage.getItem("lumio-access-token-refresh")) {
+      (async () => {
+        localStorage.setItem("lumio-access-token-refresh", true);
+        try {
+          await refresh_lumio_access_token();
+          $(event.target).find("[type=submit]").click();
+        } catch (e) {
+          addError("Configuration failed", e);
+        }
+      }
+      )();
+      return;
+    }
+    localStorage.removeItem("lumio-access-token-refresh")
     addError(`Configuration failed.`, err);
   });
 
