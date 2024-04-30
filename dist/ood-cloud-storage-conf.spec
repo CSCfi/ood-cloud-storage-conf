@@ -1,5 +1,5 @@
 %define app_path /www/ood/apps/sys/
-%define widgets_path /etc/ood/config/apps/dashboard/widgets/
+%define widgets_path /etc/ood/config/apps/dashboard/views/widgets/
 
 Name:           ood-cloud-storage-conf
 Version:        1
