@@ -1,0 +1,402 @@
+<% if params.has_key?("refresh") %>
+  <% render "widgets/refresh_remotes" %>
+<% end %>
+<% api_base_url = "/pun/sys/ood-cloud-storage-conf" %>
+<% project_files_url = files_path(fs: "allas-") %>
+<%= render :layout => 'widgets/container', :locals => {:title => "Cloud storage configuration" } do %>
+  <div id="alerts-container"></div>
+  <div id="remotes_container" class="d-none mb-3">
+    <span class="font-weight-bold">Currently configured remotes:</span>
+    <table id="remotes_table" class="table table-striped mb-1">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Type</th>
+          <th scope="col">Expiry</th>
+          <th scope="col">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+    <p id="remotes_table_empty">No remotes have been configured.</p>
+    <p>The table above lists the currently configured remotes in the Rclone config.</p>
+    <p>Deleting a remote only removes the configured Rclone remote, while keeping the remote's access token valid as it may be used outside of the web interface. To revoke the access token too, you can use the revoke button for the remote, which will revoke the access token and delete the remote.</p>
+    <p>
+    New Rclone remotes for accessing Allas can be created below. After configuring a remote, you will be able to access it in the Files dropdown in the navigation menu.
+    When transferring files in the file browser, keep the browser tab with the transfer open to ensure that it completes successfully.
+    </p>
+  </div>
+  <div id="loading_spinner" class="text-center">
+    <div class="spinner-border clearfix">
+      <span class="sr-only">Loading...</span>
+    </div>
+    <p>Checking for existing authentication...</p>
+  </div>
+  <div id="add_remote_container" class="d-none">
+    <span class="font-weight-bold">Configure new remotes:</span>
+    <ul class="nav nav-tabs" id="form_tabs" role="tablist">
+      <li class="nav-item">
+        <a class="nav-link active" id="nav_btn_allas_s3" data-toggle="tab" data-target="#tab_allas_s3" href="#" role="tab" aria-controls="tab_allas_s3" aria-selected="true">Allas S3</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="nav_btn_allas_swift" data-toggle="tab" data-target="#tab_allas_swift" href="#" role="tab" aria-controls="tab_allas_swift" aria-selected="false">Allas Swift</a>
+      </li>
+    </ul>
+    <div class="tab-content" id="form_tab_content">
+      <div class="tab-pane" id="tab_allas_swift" role="tabpanel" aria-labelledby="nav_tbn_allas_swift">
+        <p class="mt-2">A new Swift access token will be generated for each new remote. The new token will be valid until <span class="token_expiry"></span>.</p>
+        <%= bootstrap_form_tag :url => "#{api_base_url}/add", :remote => true, :html => { :id => "add_swift_remote", :class => "add-remote-form" } do |f| %>
+          <%= f.select :project, [], { :label => "Project" }, :class => "project_select", :id => nil %>
+          <%= f.hidden_field :remote_type, :value => :swift, :id => nil  %>
+          <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
+          <button class="btn btn-primary mt-2" id="add_all">Add Swift remotes for all projects</button>
+        <% end %>
+      </div>
+      <div class="tab-pane show active" id="tab_allas_s3" role="tabpanel" aria-labelledby="nav_btn_allas_s3">
+        <p class="mt-2">If an S3 access token already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens are valid forever.</p>
+        <%= bootstrap_form_tag :url => "#{api_base_url}/add", :remote => true, :html => { :id => "add_s3_remote", :class => "add-remote-form" } do |f| %>
+          <%= f.select :project, [], { :label => "Project" }, :class => "project_select", :id => nil %>
+          <%= f.hidden_field :remote_type, :value => :s3, :id => nil  %>
+          <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+  <div id="auth_container" class="d-none">
+    <span class="font-weight-bold">Authentication using the password of your CSC account is required to generate or revoke Allas access tokens:</span>
+    <%= bootstrap_form_tag url: "#{api_base_url}/renew_token", remote: true, html: { id: "renew_token_form" } do |f| %>
+      <%= f.password_field :password %>
+      <%= f.primary "Submit" %>
+    <% end %>
+  </div>
+<% end %>
+
+<script>
+  const API_BASE_URL = "<%= api_base_url -%>";
+
+  function addAlert(title, content, type = "info", extra_message_title = null, extra_messages = []) {
+    const extra_content = extra_messages.map(msg => $("<p></p>", {class: "mb-0"}).text(msg));
+    const alertHtml = `
+<div class="alert alert-${type} alert-dismissible" role="alert">
+  <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+    <span aria-hidden="true">×</span>
+  </button>
+  <h4>${title}</h4>
+  <p class="alert-content"></p>
+  <details>
+    <summary></summary>
+    <div class="extra-content">
+    </div>
+  </details>
+</div>
+    `;
+    const jqAlert = $(alertHtml);
+    jqAlert.find(".alert-content").text(content);
+    jqAlert.find(".extra-content").append(...extra_content);
+    jqAlert.find("details").toggleClass("d-none", !(extra_message_title && extra_messages.length));
+    jqAlert.find("details summary").text(extra_message_title);
+    $("#alerts-container").empty();
+    $("#alerts-container").append(jqAlert);
+  }
+
+  function addError(desc, err, log = true) {
+    if (log) {
+      console.error(desc, err.message);
+    }
+    addAlert("Error", desc, "danger", "Details:", [err.msg, ...err.errors]);
+  }
+
+  class APIError extends Error {
+    constructor(message, errors = [], response = null, data = {}) {
+      super(`${message}\n${errors.join("\n")}`);
+      this.msg = message;
+      this.errors = errors;
+      this.response = response;
+      this.data = data;
+    }
+  }
+
+  function parse_api_error(text, res) {
+    try {
+      const err = JSON.parse(text)
+      return new APIError(err.message, err.errors, res, {added: err.added, removed: err.removed, backup: err.backup});
+    } catch (e) {
+      return new APIError(text, [], res);
+    }
+  }
+
+  async function parse_response(res, json) {
+    if (res.ok) {
+      return await (json ? res.json() : res.text());
+    } else {
+      const text = await res.text();
+      throw parse_api_error(text, res);
+    }
+  }
+
+  async function api_get(url, json = true) {
+    const res = await fetch(`${API_BASE_URL}${url}`);
+    return await parse_response(res, json);
+  }
+
+  async function api_post(url, formData = {}, json = true) {
+    const body = new FormData();
+    for (const [key, value] of Object.entries(formData)) {
+      body.append(key, value);
+    }
+    const res = await fetch(`${API_BASE_URL}${url}`, { body, method: "post" });
+    return await parse_response(res, json);
+  }
+
+  function format_expiry(timestamp) {
+    if (typeof timestamp === "number") {
+      const dt = new Date(timestamp*1000);
+      const y = dt.getFullYear();
+      const m = dt.getMonth()+1;
+      const d = dt.getDate();
+      const time = dt.toLocaleTimeString("default", { hour: "numeric", minute: "numeric", second: "numeric", hour12: false, timeZoneName: "short"});
+      return `${y}-${m}-${d} ${time}`;
+    }
+    return timestamp;
+  }
+
+  function remote_name(project, s3) {
+    return `${s3 ? "s3" : ""}allas-${project}`
+  }
+
+  function force_refresh() {
+    const url = new URL(window.location);
+    const params = new URLSearchParams(url.search);
+    url.searchParams.delete("refresh");
+    url.searchParams.append("refresh", "");
+    fetch(url);
+  }
+
+  function set_projects(projects) {
+    const project_selects = $(".project_select");
+    project_selects.empty();
+    const options = projects.map((proj) => {
+      const option = document.createElement("option");
+      $(option).attr("value", proj.Name).text(proj.Name);
+      return option
+    });
+    project_selects.append(...options);
+  }
+
+  async function update_projects() {
+    let success = false;
+    try {
+      const projects = await api_get("/projects", true);
+      set_projects(projects);
+      success = true;
+    } catch (err) {
+      if (!(err.response && err.response.status === 401)) {
+        addError("An error occurred when updating the list of projects.", err);
+      }
+    } finally {
+      $("#loading_spinner").hide();
+      $("#auth_container").toggleClass("d-none", success);
+      $("#add_remote_container").toggleClass("d-none", !success);
+      await update_remotes(success);
+    }
+  }
+
+  async function delete_remote(remote) {
+    let data = { "remote": remote };
+    try {
+      const res = await api_post("/delete", data);
+      remove_remote_links(res.removed || []);
+      force_refresh();
+      addAlert("Success", `Successfully deleted ${remote}. ${backup_file_message(res.backup)}`, "success");
+      const valid_auth = $("#token_expiry_info").is(":visible");
+      await update_remotes(valid_auth);
+    } catch (err) {
+      addError("An error occurred when deleting the remote.", err);
+    }
+  }
+
+  async function revoke_remote(remote) {
+    let data = { "remote": remote };
+    try {
+      const res = await api_post("/revoke", data);
+      remove_remote_links(res.removed || []);
+      force_refresh();
+      addAlert("Success", `Successfully revoked the access token for ${remote} and deleted the remote. ${backup_file_message(res.backup)}`, "success");
+      $("#confirmModal").modal("hide");
+      await update_remotes(true);
+    } catch (err) {
+      addError("An error occurred when revoking token and deleting the remote.", err);
+      $("#confirmModal").modal("hide");
+    }
+  }
+
+  function set_remotes(remotes, revoke) {
+    remotes.sort((a, b) => a.name.localeCompare(b.name));
+    const table_rows = remotes.map((remote) => {
+      const tr = document.createElement("tr");
+      const name_td = document.createElement("td");
+      $(name_td).text(remote.name);
+      const type_td = document.createElement("td");
+      $(type_td).text(remote.type);
+      const expiry_td = document.createElement("td");
+      $(expiry_td).text(format_expiry(remote.expires));
+      const action_td = document.createElement("td");
+      const delete_button = document.createElement("button");
+      $(delete_button)
+        .addClass("btn btn-primary mr-1")
+        .text("Delete")
+        .on("click", () => delete_remote(remote.name));
+      action_td.append(delete_button);
+      const revoke_button = document.createElement("button");
+      $(revoke_button)
+        .addClass("btn btn-primary")
+        .text("Revoke")
+        .prop("disabled", !(revoke && (remote.type.toLowerCase() === "s3" || remote.type.toLowerCase() === "swift")))
+        .on("click",
+          () => {
+            if (remote.type.toLowerCase() === "s3") {
+              show_confirm_modal(
+              "Are you sure?",
+              "The S3 access key for the remote may currently be in use outside of the web interface, for example, when using Rclone or S3cmd command line tools through SSH.",
+              async () => await revoke_remote(remote.name)
+              )
+            } else {
+              revoke_remote(remote.name)
+            }
+          }
+        );
+      action_td.append(revoke_button);
+      $(tr).append(name_td, type_td, expiry_td, action_td);
+      return tr;
+    });
+    const table = $("#remotes_table tbody");
+    table.empty();
+    table.append(...table_rows);
+    $("#remotes_table_empty").toggleClass("d-none", remotes.length > 0);
+  };
+
+  async function update_remotes(revoke = false) {
+    try {
+      const remotes = await api_get("/remotes", true);
+      set_remotes(remotes, revoke);
+      $("#remotes_container").removeClass("d-none");
+    } catch (err) {
+      addError("An error occurred when updating the list of remotes.", err);
+    }
+  }
+
+  async function revoke_os_tokens() {
+    try {
+      await api_post("/revoke_tokens");
+      update_projects();
+    } catch (err) {
+      addError("An error occurred when revoking the tokens", err);
+      $("#confirmModal").modal("hide");
+    }
+  }
+
+  async function add_all() {
+    try {
+      const res = await api_post("/add_all", {"remote_type": "swift"});
+      await update_remotes(true);
+      (res.added || []).forEach(add_remote_links);
+      addAlert("Success", `Successfully added Swift remotes for all projects. ${backup_file_message(res.backup)}`, "success");
+    } catch (err) {
+      let added_remotes = "";
+      if (err.data && err.data.added && err.data.added.length) {
+        added_remotes = `Remote${err.data.added.length > 1 ? 's' : ''} ${err.data.added.join(", ")} ${err.data.added.length > 1 ? 'were' : 'was'} added successfully. ${backup_file_message(err.data.backup)}`;
+        add_remote_links(err.data.added);
+        update_remotes(true);
+      }
+      addError(`An error occurred when adding Swift remotes for all projects. ${added_remotes}`, err);
+    }
+    force_refresh();
+  }
+
+  async function update_expiry() {
+    try {
+      const expiry = (await api_get("/status")).expires;
+      $(".token_expiry").text(format_expiry(expiry));
+    } catch (err) {
+      if (!(err.response && err.response.status === 401)) {
+        console.error("Error updating token expiry:", err.message)
+      }
+    }
+  }
+
+  function show_confirm_modal(title, text, callback, confirmText = "OK", cancelText = "Cancel") {
+    const modal_html = `
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">${title}</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>${text}</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="confirmButton" class="btn btn-primary">${confirmText}</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">${cancelText}</button>
+        </div>
+      </div>
+    </div>`
+
+    let modal = $('#confirmModal');
+    if (!modal.length) {
+      $('body').append('<div class="modal" tabindex="-1" role="dialog" id="confirmModal"></div>');
+      modal = $('#confirmModal');
+    }
+    modal.html(modal_html);
+    modal.find('#confirmButton').on("click", function () {
+      $(this).prop("disabled", true);
+      callback().then(() => { $(this).prop("disabled", false) });
+    });
+    modal.modal("show");
+  }
+
+  function backup_file_message(backup_file) {
+    if (backup_file) {
+      return `Your configuration contained comments, which were not preserved when saving. Your old configuration has been saved to ${backup_file}.`;
+    } else {
+      return "";
+    }
+  }
+
+  (async function () {
+    $("#revoke_auth").on("click", revoke_os_tokens);
+    $("#add_all").on("click", function (event) {
+      event.preventDefault();
+      $(this).prop("disabled", true);
+      add_all().then(() => { $(this).prop("disabled", false) });
+    });
+    await Promise.all([update_projects(), update_expiry()]);
+  })();
+
+  $(".add-remote-form").on("ajax:success", function(event, data) {
+    const xhr = event.originalEvent.detail[2];
+    const res = JSON.parse(xhr.responseText);
+    add_remote_links(res.added);
+    force_refresh();
+    addAlert("Success", `Successfully configured ${res.added[0]} remote. ${backup_file_message(res.backup)}`, "success");
+    update_remotes(true);
+  });
+  $(".add-remote-form").on("ajax:error", function(event, data) {
+    const xhr = event.originalEvent.detail[2];
+    const err = parse_api_error(xhr.responseText);
+    addError(`Configuration failed.`, err);
+  });
+
+  $("#renew_token_form").on("ajax:success", async function(event, data) {
+    $("#auth_container").addClass("d-none");
+    await Promise.all([update_projects(), update_expiry()]);
+  });
+  $("#renew_token_form").on("ajax:error", function(event, data) {
+    const xhr = event.originalEvent.detail[2];
+    const err = parse_api_error(xhr.responseText);
+    addError("Authentication failed, please ensure that you typed the password correctly.", err);
+  });
+</script>
