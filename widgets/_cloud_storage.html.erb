@@ -106,7 +106,7 @@
           <br>
           <%= f.hidden_field :remote_type, :value => :lumio, :id => nil  %>
           <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
-          <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="lumio" data-public="true">Add remotes for all projects</button>
+          <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="lumio">Add remotes for all projects</button>
         <% end %>
       </div>
     </div>
@@ -582,7 +582,12 @@
     $(".btn-add-all").on("click", function (event) {
       event.preventDefault();
       $(this).prop("disabled", true);
-      add_all($(this).data("endpoint"), $(this).data("public")).then(() => { $(this).prop("disabled", false) });
+      let public = false;
+      if ($(this).data("endpoint") === "lumio") {
+        const form = $(this).closest("form");
+        public = form.find("input[name=public][type=checkbox]").prop("checked");
+      }
+      add_all($(this).data("endpoint"), public).then(() => { $(this).prop("disabled", false) });
     });
     await update_all();
   })();

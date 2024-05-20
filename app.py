@@ -198,14 +198,15 @@ def add_lumio(project=None, remotes=None, public=None):
     )
     errors = list(map(lambda e: escape(e), errors))
 
-    public_param = request.form.getlist("public")
-    public = public or len(public_param) and public_param[-1] == "1"
-
     remotes = (
         remotes
         if project is None
-        else filter(None, [f"lumi-{project}-private", f"lumi-{project}-public" if public else None])
+        else [f"lumi-{project}-private", f"lumi-{project}-public"]
     )
+
+    public_param = request.form.getlist("public")
+    public = public if public is not None else (len(public_param) and public_param[-1] == "1")
+    remotes = filter(lambda r: not re.match(r"lumi-\d+-public", r), remotes)
 
     remotes, backup_file = copy_lumio_remotes(remotes)
 
