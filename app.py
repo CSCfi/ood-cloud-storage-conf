@@ -198,6 +198,7 @@ def add_lumio(project=None, remotes=None, public=None):
     )
     errors = list(map(lambda e: escape(e), errors))
 
+    public_param = request.form.getlist("public")
     public = public or len(public_param) and public_param[-1] == "1"
 
     remotes = (
