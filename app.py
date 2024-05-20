@@ -186,7 +186,7 @@ def add_all(os_token=None, remote_type=None):
 
 
 # Copy configuration for either a project or an already known list of remotes to the normal Rclone config.
-def add_lumio(project=None, remotes=None):
+def add_lumio(project=None, remotes=None, public=None):
     errors = []
 
     errors = (
@@ -198,10 +198,12 @@ def add_lumio(project=None, remotes=None):
     )
     errors = list(map(lambda e: escape(e), errors))
 
+    public = public or len(public_param) and public_param[-1] == "1"
+
     remotes = (
         remotes
         if project is None
-        else [f"lumi-{project}-private", f"lumi-{project}-public"]
+        else filter(None, [f"lumi-{project}-private", f"lumi-{project}-public" if public else None])
     )
 
     remotes, backup_file = copy_lumio_remotes(remotes)
@@ -244,8 +246,9 @@ def add_single_lumio(project=None):
 
 # Copy all LUMI-O remotes from the LUMI-O Rclone config to the normal config.
 @app.route("/add_all_lumio", methods=["POST"])
+@extract_param("public")
 def add_all_lumio():
-    return add_lumio(remotes=lumio_remotes())
+    return add_lumio(remotes=lumio_remotes(), public=public)
 
 
 # Delete a remote from the Rclone config.

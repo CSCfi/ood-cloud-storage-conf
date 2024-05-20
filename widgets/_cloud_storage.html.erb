@@ -93,14 +93,20 @@
       </div>
       <div class="tab-pane lumio d-none" id="tab_lumio" role="tabpanel" aria-labelledby="nav_btn_lumio">
         <p class="mt-2">If an S3 access token for the web interface already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens will be valid for 7 days.</p>
-        <p>Configuration for usage with s3cmd can also be generated and placed in ~/.s3cfg-lumi-&lt;project&gt;.</p>
         <%= bootstrap_form_tag :url => "#{lumio_api_base_url}/add", :remote => true, :html => { :id => "add_lumio_remote", :class => "add-remote-form" } do |f| %>
           <%= f.select :project, [["Loading projects...", ""]], { :label => "Project" }, :class => ["project_select", "lumio"], :id => nil %>
-          <%= f.check_box :s3cmd, :label => "Generate s3cmd configuration" %>
+          <%= f.check_box :s3cmd do %>
+            Generate s3cmd configuration
+            <i class="fa fa-question-circle" title="Generate configuration for use with s3cmd. Configuration will be placed in ~/.s3cmd-lumi-<project>."></i>
+          <% end %>
+          <%= f.check_box :public do %>
+            Configure public remote
+            <i class="fa fa-question-circle" title="Configure a lumi-<project>-public remote. Files uploaded will be publicly accessibly on the URL https://<project_number>.lumidata.eu/<bucket_name>"></i>
+          <% end %>
           <br>
           <%= f.hidden_field :remote_type, :value => :lumio, :id => nil  %>
           <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
-          <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="lumio">Add remotes for all projects</button>
+          <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="lumio" data-public="true">Add remotes for all projects</button>
         <% end %>
       </div>
     </div>
@@ -413,6 +419,15 @@
         .data("type", remote["type"]);
       const name_td = document.createElement("td");
       $(name_td).text(remote.name);
+      const public_remote = remote.name.match(/lumi-(\d+)-public/);
+      if (public_remote) {
+        const proj_num = public_remote[1] || "<project_number>";
+        const help_icon = document.createElement("i");
+        $(help_icon)
+          .addClass("fas fa-globe-europe fa-fw")
+          .attr("title", `Public remote. Files uploaded to this remote will be publicly accessible by anyone using the URL https://${proj_num}.lumidata.eu/<bucket_name>.`);
+        name_td.append(help_icon);
+      }
       const type_td = document.createElement("td");
       $(type_td).text(remote.type);
       const expiry_td = document.createElement("td");
@@ -503,9 +518,9 @@
     update_revoke_buttons();
   }
 
-  async function add_all(endpoint) {
+  async function add_all(endpoint, public = false) {
     try {
-      const res = await api_post({ url: "/add_all", formData: {"remote_type": endpoint === "lumio" ? "lumio" : "swift"}, json: true, lumio: endpoint === "lumio", attempt_reauth: true });
+      const res = await api_post({ url: "/add_all", formData: {"remote_type": endpoint === "lumio" ? "lumio" : "swift", "public": public}, json: true, lumio: endpoint === "lumio", attempt_reauth: true });
       await update_remotes(endpoint === "lumio");
       add_remote_links(res.added || []);
       addAlert("Success", `Successfully added ${endpoint === "lumio" ? "LUMI-O" : "Swift"} remotes for all projects. ${backup_file_message(res.backup)}`, "success");
@@ -567,7 +582,7 @@
     $(".btn-add-all").on("click", function (event) {
       event.preventDefault();
       $(this).prop("disabled", true);
-      add_all($(this).data("endpoint")).then(() => { $(this).prop("disabled", false) });
+      add_all($(this).data("endpoint"), $(this).data("public")).then(() => { $(this).prop("disabled", false) });
     });
     await update_all();
   })();
