@@ -248,7 +248,7 @@ def add_single_lumio(project=None):
 # Copy all LUMI-O remotes from the LUMI-O Rclone config to the normal config.
 @app.route("/add_all_lumio", methods=["POST"])
 @extract_param("public")
-def add_all_lumio():
+def add_all_lumio(public):
     return add_lumio(remotes=lumio_remotes(), public=public)
 
 
