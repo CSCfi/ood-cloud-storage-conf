@@ -389,11 +389,12 @@
       remove_remote_links(res.removed || []);
       refresh_remotes();
       addAlert("Success", `Successfully deleted ${remote}. ${backup_file_message(res.backup)}`, "success");
+      $("#confirmModal").modal("hide");
       await update_remotes();
     } catch (err) {
       addError("An error occurred when deleting the remote.", err);
+      $("#confirmModal").modal("hide");
     }
-    $("#confirmModal").modal("hide");
   }
 
   async function revoke_remote(remote) {
