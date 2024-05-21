@@ -393,6 +393,7 @@
     } catch (err) {
       addError("An error occurred when deleting the remote.", err);
     }
+    $("#confirmModal").modal("hide");
   }
 
   async function revoke_remote(remote) {
@@ -445,7 +446,14 @@
       $(delete_button)
         .addClass("btn btn-primary mr-1 delete-button")
         .text("Delete")
-        .on("click", () => delete_remote(remote.name));
+        .on("click",
+          () => {
+              show_confirm_modal(
+                "Are you sure?",
+                "Note that this will only delete the remote from the configuration. The access token itself will still be valid and can be used elsewhere.",
+                async () => await delete_remote(remote.name)
+              )
+        });
       action_td.append(delete_button);
       const revoke_button = document.createElement("button");
       $(revoke_button)
