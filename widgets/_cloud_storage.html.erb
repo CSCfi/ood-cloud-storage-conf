@@ -450,7 +450,7 @@
           () => {
               show_confirm_modal(
                 "Are you sure?",
-                "Note that this will only delete the remote from the configuration. The access token itself will still be valid and can be used elsewhere.",
+                "Note that this will only delete the remote from the configuration. The access token itself may still be valid and can be used elsewhere.",
                 async () => await delete_remote(remote.name)
               )
         });
