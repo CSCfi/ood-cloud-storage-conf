@@ -45,6 +45,25 @@
       </li>
     </ul>
     <div class="tab-content" id="form_tab_content">
+      <div class="tab-pane lumio d-none" id="tab_lumio" role="tabpanel" aria-labelledby="nav_btn_lumio">
+        <p class="mt-2">If an S3 access token for the web interface already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens will be valid for 7 days.</p>
+        <p>Check the <a href="https://docs.lumi-supercomputer.eu/storage/lumio/">LUMI user guide</a> for more details about LUMI-O.</p>
+        <%= bootstrap_form_tag :url => "#{lumio_api_base_url}/add", :remote => true, :html => { :id => "add_lumio_remote", :class => "add-remote-form" } do |f| %>
+          <%= f.select :project, [["Loading projects...", ""]], { :label => "Project" }, :class => ["project_select", "lumio"], :id => nil %>
+          <%= f.check_box :s3cmd do %>
+            Generate s3cmd configuration
+            <i class="fa fa-question-circle" title="Generate configuration for use with s3cmd. Configuration will be placed in ~/.s3cmd-lumi-<project>."></i>
+          <% end %>
+          <%= f.check_box :public do %>
+            Configure public remote
+            <i class="fa fa-question-circle" title="Configure a lumi-<project>-public remote. Files uploaded will be publicly accessibly on the URL https://<project_number>.lumidata.eu/<bucket_name>."></i>
+          <% end %>
+          <br>
+          <%= f.hidden_field :remote_type, :value => :lumio, :id => nil  %>
+          <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
+          <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="lumio">Add remotes for all projects</button>
+        <% end %>
+      </div>
       <div class="tab-pane allas d-none" id="tab_allas_s3" role="tabpanel" aria-labelledby="nav_btn_allas_s3">
         <div class="allas-auth-container mt-2 d-none">
           <span class="font-weight-bold">Authentication using the password of your CSC account is required to generate or revoke Allas access tokens:</span>
@@ -93,25 +112,6 @@
           </div>
           <p>Checking available projects...</p>
         </div>
-      </div>
-      <div class="tab-pane lumio d-none" id="tab_lumio" role="tabpanel" aria-labelledby="nav_btn_lumio">
-        <p class="mt-2">If an S3 access token for the web interface already exists for the project, it will be reused for the remote. Otherwise, a new S3 access token will be generated. The S3 access tokens will be valid for 7 days.</p>
-        <p>Check the <a href="https://docs.lumi-supercomputer.eu/storage/lumio/">LUMI user guide</a> for more details about LUMI-O.</p>
-        <%= bootstrap_form_tag :url => "#{lumio_api_base_url}/add", :remote => true, :html => { :id => "add_lumio_remote", :class => "add-remote-form" } do |f| %>
-          <%= f.select :project, [["Loading projects...", ""]], { :label => "Project" }, :class => ["project_select", "lumio"], :id => nil %>
-          <%= f.check_box :s3cmd do %>
-            Generate s3cmd configuration
-            <i class="fa fa-question-circle" title="Generate configuration for use with s3cmd. Configuration will be placed in ~/.s3cmd-lumi-<project>."></i>
-          <% end %>
-          <%= f.check_box :public do %>
-            Configure public remote
-            <i class="fa fa-question-circle" title="Configure a lumi-<project>-public remote. Files uploaded will be publicly accessibly on the URL https://<project_number>.lumidata.eu/<bucket_name>."></i>
-          <% end %>
-          <br>
-          <%= f.hidden_field :remote_type, :value => :lumio, :id => nil  %>
-          <%= f.primary "Submit", :class => "btn btn-primary mt-2" %>
-          <button class="btn btn-primary mt-2 btn-add-all" data-endpoint="lumio">Add remotes for all projects</button>
-        <% end %>
       </div>
     </div>
   </div>
