@@ -3,7 +3,7 @@
 
 Name:           ood-cloud-storage-conf
 Version:        2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Open on Demand Cloud Storage Configuration API
 
 BuildArch:      %{_arch}
