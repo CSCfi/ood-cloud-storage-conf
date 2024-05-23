@@ -212,17 +212,18 @@ def add_lumio(project=None, remotes=None, public=None):
 
     # Rails forms always sends the form value for checkboxes as a an array where the last one is the real one.
     s3cmd = request.form.getlist("s3cmd")
-    if len(s3cmd) and s3cmd[-1] == "1" and len(remotes):
-        remote = remotes[0]
-        project = (
-            remote.removeprefix("lumi-")
-            .removesuffix("-public")
-            .removesuffix("-private")
-        )
-        access_key = get_remote_option(remote, "access_key_id")
-        secret = get_remote_option(remote, "secret_access_key")
-        if access_key and secret:
-            configure_s3cmd(project, access_key, secret)
+    if len(s3cmd) and s3cmd[-1] == "1":
+        for remote in remotes:
+            project = (
+                remote.removeprefix("lumi-")
+                .removesuffix("-public")
+                .removesuffix("-private")
+            )
+            access_key = get_remote_option(remote, "access_key_id")
+            secret = get_remote_option(remote, "secret_access_key")
+            if access_key and secret:
+                configure_s3cmd(project, access_key, secret)
+
 
     if len(errors) > 0:
         res = make_response(
