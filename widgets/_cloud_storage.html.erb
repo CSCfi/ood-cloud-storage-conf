@@ -531,9 +531,9 @@
     update_revoke_buttons();
   }
 
-  async function add_all(endpoint, public = false) {
+  async function add_all(endpoint, public = false, s3cmd = false) {
     try {
-      const res = await api_post({ url: "/add_all", formData: {"remote_type": endpoint === "lumio" ? "lumio" : "swift", "public": public}, json: true, lumio: endpoint === "lumio", attempt_reauth: true });
+      const res = await api_post({ url: "/add_all", formData: {"remote_type": endpoint === "lumio" ? "lumio" : "swift", "public": public, "s3cmd": s3cmd}, json: true, lumio: endpoint === "lumio", attempt_reauth: true });
       await update_remotes(endpoint === "lumio");
       add_remote_links(res.added || []);
       addAlert("Success", `Successfully added ${endpoint === "lumio" ? "LUMI-O" : "Swift"} remotes for all projects. ${backup_file_message(res.backup)}`, "success");
@@ -596,11 +596,13 @@
       event.preventDefault();
       $(this).prop("disabled", true);
       let public = false;
+      let s3cmd = false;
       if ($(this).data("endpoint") === "lumio") {
         const form = $(this).closest("form");
         public = form.find("input[name=public][type=checkbox]").prop("checked");
+        s3cmd = form.find("input[name=s3cmd][type=checkbox]").prop("checked");
       }
-      add_all($(this).data("endpoint"), public).then(() => { $(this).prop("disabled", false) });
+      add_all($(this).data("endpoint"), public, s3cmd).then(() => { $(this).prop("disabled", false) });
     });
     await update_all();
   })();
