@@ -379,7 +379,8 @@
 
   async function update_all() {
     // update_remotes queries LUMI-O projects for expiry time
-    await Promise.allSettled([check_access_quick().then(update_tabs), update_allas_projects().then(update_tabs), update_remotes(true).then(update_tabs)]);
+    await Promise.allSettled([check_access_quick().then(update_tabs), update_remotes(true)]);
+    await Promise.allSettled([update_allas_projects().then(update_tabs)]);
   }
 
   async function delete_remote(remote) {
