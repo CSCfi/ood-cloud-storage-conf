@@ -463,15 +463,21 @@
         .text("Revoke")
         .on("click",
           () => {
-            if (remote.type.toLowerCase() === "s3") {
-              show_confirm_modal(
-              "Are you sure?",
-              "The S3 access key for the remote may currently be in use outside of the web interface, for example, when using Rclone or S3cmd command line tools through SSH.",
-              async () => await revoke_remote(remote.name)
-              )
-            } else {
-              revoke_remote(remote.name)
+            let extra_text = "";
+            const public_remote = remote.name.match(/^lumi-(\d+)-public$/);
+            const private_remote = remote.name.match(/^lumi-(\d+)-private$/);
+            if (public_remote || private_remote) {
+              const proj_num = (public_remote && public_remote[1]) || (private_remote && private_remote[1]);
+              const other_name = (public_remote && `lumi-${proj_num}-private`) || (private_remote && `lumi-${proj_num}-public`);
+              if (other_name) {
+                extra_text = `<br><br>Note that revoking the key for the ${remote.name} remote will also remove the ${other_name} remote from the configuration if it exists.`;
+              }
             }
+            show_confirm_modal(
+            "Are you sure?",
+            `The access key for the remote may currently be in use outside of the web interface, for example, when using Rclone or other command line tools through SSH.${extra_text}`,
+            async () => await revoke_remote(remote.name)
+            )
           })
           // Copy state of button from previous table if it exists.
         .prop("disabled", existing.length ? existing.find(".revoke-button").prop("disabled") : true);
