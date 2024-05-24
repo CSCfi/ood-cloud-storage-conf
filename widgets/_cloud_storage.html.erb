@@ -470,7 +470,7 @@
               const proj_num = (public_remote && public_remote[1]) || (private_remote && private_remote[1]);
               const other_name = (public_remote && `lumi-${proj_num}-private`) || (private_remote && `lumi-${proj_num}-public`);
               if (other_name) {
-                extra_text = `<br><br>Note that revoking the key for the ${remote.name} remote will also remove the ${other_name} remote from the configuration if it exists.`;
+                extra_text = `<br><br>Note that revoking the key for the ${remote.name} remote will remove both the ${remote.name} remote and the ${other_name} remote from the configuration, if they exists.`;
               }
             }
             show_confirm_modal(
