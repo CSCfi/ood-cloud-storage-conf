@@ -1,14 +1,15 @@
-# Allas configuration tool
+# Cloud Storage Configuration tool
 
-A Passenger app and custom dashboard page for configuring Rclone remotes with access to Allas using S3.
-Remotes are named according to the project name with the format `allas-<project>`.
-Remotes that are not for Allas can be deleted but not revoked.
+A Passenger app and custom dashboard page for configuring Rclone remotes with access to Allas using Swift and S3 and to LUMI-O using S3.
+Remotes are named according to the project name with the format `allas-<project>` for Allas and `lumi-<project>-{public,private}` for LUMI-O.
+Remotes that are not for any of those storages can be deleted, but not revoked.
 
-
-The user logs in to the app using their CSC password.
+For authentication to Allas, the user logs in to the app using their CSC password.
 This generates and unscoped OpenStack (OS) token with a lifetime of 8h that is used for subsequent requests.
 These OS tokens are not visible to the user anywhere.
 Without authentication the user can list and delete any Rclone remotes they have configured.
+
+For authentication to LUMI-O, the LUMI-O authentication service provides an API for managing tokens with authentication through OIDC.
 
 The custom dashboard page is in the ood-initializers repo as a widget, with a custom dashboard page configured in `ondemand.d/dashboard.yml.erb`.
 The backend is as an API using Python with Flask.
@@ -22,6 +23,7 @@ The backend API is used in the background to avoid extra page loads.
 Refreshing the list of remotes in OOD requires running the relevant initializers again, which the custom dashboard page does if the parameter `refresh` is defined.
 Currently the refreshing happens in the background, as the updated list of remotes is only visible after an additional page load.
 The updated list of remotes is added temporarily using JavaScript until the user reloads the page again.
+See ood-initializers/javascript/utils.js for relevant functions.
 
 Error messages are directly propagated from the underlying backend API with some context added to describe what was attempted.
 
