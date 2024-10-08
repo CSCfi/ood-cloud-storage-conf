@@ -2,7 +2,7 @@
 %define widgets_path /etc/ood/config/apps/dashboard/views/widgets/
 
 Name:           ood-cloud-storage-conf
-Version:        4
+Version:        5
 Release:        1%{?dist}
 Summary:        Open on Demand Cloud Storage Configuration API
 
